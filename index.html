@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>KH Printer Inventory (Sample)</title>
+<title>KH Printer Inventory</title>
 <meta name="theme-color" content="#212a5f">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fira+Sans:wght@400;500;600;700&family=Fira+Mono:wght@500&family=Tajawal:wght@500;700&display=swap">
@@ -14,12 +14,12 @@
    SETTINGS — fill these in before uploading to GitHub (see setup steps)
    ===================================================================== */
 const CONFIG = {
-  // Entra ID > App registrations > KH Printer Inventory > Overview
+  // Entra ID > App registrations > KH-Helpdesk App > Overview
   CLIENT_ID: "c64af434-aaff-4707-9757-c33e3665026a",
   TENANT_ID: "7571e491-9c53-4562-a9b1-e1b10915387e",
 
   // OneDrive > "Printer Inventory" folder > Share > Copy link
-  FOLDER_LINK: "https://kwh-my.sharepoint.com/:f:/r/personal/msirajudeen_kuwaithospital_com_kw/Documents/Github%20Inventory?d=w4501b6c2d4264cdcbd5fcbc40f7b58c6&csf=1&web=1&e=0bkjcG",
+  FOLDER_LINK: "PASTE-ONEDRIVE-FOLDER-LINK-HERE",
 
   // Leave these unless you renamed them
   EXCEL_FILE: "Printer_Inventory.xlsx",
@@ -434,29 +434,6 @@ $("signoutBtn").addEventListener("click", () => S.msal.logoutRedirect({account:S
 
 (async function boot(){
   const sb=$("statusBanner");
-  /* ---- SAMPLE MODE: example data, nothing is saved ---- */
-  S.account={name:"Sample User",username:"sample.user@kuwaithospital"};
-  S.fileId="sample";
-  S.rows=[
-    {sno:1,date:"26/10/2026",brand:"HP",model:"LaserJet Pro M404dn",serial:"VNB3K12345",dept:"OPD – Pediatrics",floor:"2"},
-    {sno:2,date:"26/10/2026",brand:"RICOH",model:"IM C3000",serial:"3110R820451",dept:"Radiology Reception",floor:"B"},
-    {sno:3,date:"26/10/2026",brand:"CANON",model:"imageRUNNER 2425",serial:"XLM04887",dept:"Pharmacy",floor:"1"}
-  ];
-  loadRows=async()=>{renderSno();renderList();renderDepts();};
-  uploadPhoto=async()=>({webUrl:""});
-  graph=async(path,opts={})=>{
-    if(opts.body && /\/rows/.test(path)){
-      const v=JSON.parse(opts.body).values[0]; const [y,m,d]=String(v[1]).split("-");
-      S.rows.push({sno:v[0],date:d+"/"+m+"/"+y,brand:v[2],model:v[3],serial:String(v[4]).replace(/^'/,""),dept:v[5],floor:v[6]});
-    }
-    return null;
-  };
-  $("userName").textContent=S.account.name;
-  $("signoutBtn").hidden=true;
-  $("app").hidden=false;
-  banner(sb,"warn","Sample preview with example printers. Entries you add here are kept only until you reload, and nothing goes to OneDrive.");
-  await loadRows();
-  return;
   if(/PASTE-/.test(CONFIG.CLIENT_ID+CONFIG.TENANT_ID+CONFIG.FOLDER_LINK)){
     banner(sb,"bad","Setup not finished: open index.html and fill in CLIENT_ID, TENANT_ID and FOLDER_LINK at the top of the file."); return;
   }
