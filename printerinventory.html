@@ -1,0 +1,483 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>KH Printer Inventory (Sample)</title>
+<meta name="theme-color" content="#212a5f">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fira+Sans:wght@400;500;600;700&family=Fira+Mono:wght@500&family=Tajawal:wght@500;700&display=swap">
+<script src="https://cdn.jsdelivr.net/npm/@azure/msal-browser@3.28.1/lib/msal-browser.min.js"></script>
+<script src="https://unpkg.com/@zxing/library@0.21.3/umd/index.min.js"></script>
+<script>
+/* =====================================================================
+   SETTINGS — fill these in before uploading to GitHub (see setup steps)
+   ===================================================================== */
+const CONFIG = {
+  // Entra ID > App registrations > KH Printer Inventory > Overview
+  CLIENT_ID: "PASTE-APPLICATION-CLIENT-ID-HERE",
+  TENANT_ID: "PASTE-DIRECTORY-TENANT-ID-HERE",
+
+  // OneDrive > "Printer Inventory" folder > Share > Copy link
+  FOLDER_LINK: "PASTE-ONEDRIVE-FOLDER-LINK-HERE",
+
+  // Leave these unless you renamed them
+  EXCEL_FILE: "Printer_Inventory.xlsx",
+  TABLE_NAME: "PrinterInventory",
+  PHOTO_FOLDER: "Photos"
+};
+/* ===================================================================== */
+</script>
+<style>
+:root{
+  --bg:#f1f2f8; --surface:#ffffff; --ink:#161b3d; --muted:#5d6280; --line:#d9dcea;
+  --accent:#212a5f; --accent-ink:#ffffff; --accent-soft:#e3e6f4; --logo-filter:none;
+  --ok:#1f7a4d; --ok-soft:#dff2e8; --warn:#9a5b00; --warn-soft:#fff1d6; --bad:#b3261e; --bad-soft:#fde4e1;
+  --font:"Fira Sans",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  --arabic:"Tajawal","Fira Sans",system-ui,sans-serif;
+  --mono:"Fira Mono",ui-monospace,Menlo,Consolas,monospace;
+  --r:10px; color-scheme:light;
+}
+@media (prefers-color-scheme:dark){:root{
+  --bg:#0f1226; --surface:#181c36; --ink:#e6e8f5; --muted:#a0a5c4; --line:#2c3256;
+  --accent:#9aa6ec; --accent-ink:#121634; --accent-soft:#262c55; --logo-filter:brightness(0) invert(1);
+  --ok:#6fd3a1; --ok-soft:#123a28; --warn:#f2b955; --warn-soft:#3a2a0e; --bad:#ff8a80; --bad-soft:#3d1916; color-scheme:dark}}
+*{box-sizing:border-box}
+html{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--font);font-size:16px;line-height:1.45}
+[hidden]{display:none!important}
+img{max-width:100%}
+.wrap{max-width:560px;margin:0 auto;padding-block:16px 48px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));display:flex;flex-direction:column;gap:20px}
+header{display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap;padding-bottom:16px;border-bottom:2px solid var(--accent)}
+.brand{display:flex;align-items:center;gap:14px;min-width:0}
+.brand img{height:64px;width:auto;filter:var(--logo-filter)}
+.eyebrow{font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);font-weight:600}
+h1{margin:2px 0 0;font-size:24px;font-weight:700}
+.ar{font-family:var(--arabic);font-weight:700;font-size:15px;color:var(--muted);direction:rtl}
+h2{margin:0;font-size:17px;font-weight:600}
+.userbar{display:flex;align-items:center;justify-content:space-between;gap:10px;font-size:14px;color:var(--muted);flex-wrap:wrap}
+.userbar strong{color:var(--ink);font-weight:600;overflow-wrap:anywhere}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:18px;display:flex;flex-direction:column;gap:16px}
+.row2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.field{display:flex;flex-direction:column;gap:6px;min-width:0}
+label,.lbl{font-size:13px;font-weight:600;color:var(--muted)}
+.req::after{content:" *";color:var(--bad)}
+input[type=text],input[type=date],select{width:100%;font:inherit;font-size:16px;color:var(--ink);background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:11px 12px;min-height:46px}
+input:focus,select:focus,button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.sno{font-family:var(--mono);font-size:20px;font-weight:500;padding:8px 0;font-variant-numeric:tabular-nums}
+.serial{display:flex;gap:8px}
+.serial input{font-family:var(--mono);letter-spacing:.03em}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;font:inherit;font-weight:600;font-size:15px;border-radius:8px;padding:0 14px;min-height:46px;border:1px solid var(--line);background:var(--surface);color:var(--ink);cursor:pointer;white-space:nowrap;text-decoration:none}
+.btn.primary{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+.btn.soft{background:var(--accent-soft);border-color:transparent}
+.btn.small{min-height:36px;font-size:14px}
+.btn:disabled{opacity:.55;cursor:not-allowed}
+.btn svg{width:20px;height:20px;flex:none}
+.hidden-input{position:absolute;width:1px;height:1px;opacity:0;pointer-events:none}
+.hint{font-size:13px;color:var(--muted)}
+.hint.ok{color:var(--ok)} .hint.bad{color:var(--bad)}
+.photo{border:1.5px dashed var(--line);border-radius:8px;min-height:150px;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:8px;cursor:pointer;color:var(--muted);text-align:center;padding:12px;background:var(--bg);font-weight:600;font-size:15px}
+.photo img{max-height:220px;border-radius:6px;object-fit:contain}
+.photo svg{width:34px;height:34px}
+.banner{border-radius:8px;padding:10px 12px;font-size:14px}
+.banner.ok{background:var(--ok-soft);color:var(--ok)} .banner.bad{background:var(--bad-soft);color:var(--bad)} .banner.warn{background:var(--warn-soft);color:var(--warn)}
+.signin{align-items:center;text-align:center;padding:32px 18px}
+.signin p{margin:0;color:var(--muted);max-width:36ch}
+.listhead{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap}
+.count{font-variant-numeric:tabular-nums;color:var(--muted);font-size:14px}
+.items{display:flex;flex-direction:column;gap:8px}
+.item{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:10px 12px;display:flex;flex-direction:column;gap:2px}
+.item .top{display:flex;gap:8px;align-items:baseline;flex-wrap:wrap}
+.chip{font-size:11px;font-weight:700;letter-spacing:.05em;padding:2px 7px;border-radius:99px;background:var(--accent-soft)}
+.item .sn{font-family:var(--mono);font-size:14px;overflow-wrap:anywhere}
+.item .sub{font-size:13px;color:var(--muted);overflow-wrap:anywhere}
+.empty{text-align:center;color:var(--muted);padding:24px 12px;border:1px dashed var(--line);border-radius:var(--r);font-size:14px}
+.spin{width:18px;height:18px;border:2.5px solid currentColor;border-right-color:transparent;border-radius:50%;animation:s .8s linear infinite}
+@keyframes s{to{transform:rotate(360deg)}}
+@media (prefers-reduced-motion:reduce){.spin{animation-duration:2.4s}}
+@media (max-width:380px){.row2{grid-template-columns:1fr}}
+footer{font-size:12px;color:var(--muted);text-align:center}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="brand">
+      <img src="data:image/png;base64,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" alt="Kuwait Hospital">
+      <div>
+        <div class="eyebrow">IT Department</div>
+        <h1>Printer Inventory</h1>
+        <div class="ar" lang="ar">جرد الطابعات</div>
+      </div>
+    </div>
+  </header>
+
+  <div id="statusBanner" class="banner warn" hidden></div>
+
+  <!-- Sign-in screen -->
+  <div class="card signin" id="signinCard" hidden>
+    <h2>Sign in to continue</h2>
+    <p>Use your Kuwait Hospital Microsoft account. Printers you save go into the inventory Excel file on OneDrive.</p>
+    <button class="btn primary" id="signinBtn" type="button">Sign in with Microsoft</button>
+  </div>
+
+  <!-- Main app -->
+  <div id="app" hidden style="display:flex;flex-direction:column;gap:20px">
+    <div class="userbar">
+      <span>Signed in as <strong id="userName"></strong></span>
+      <span style="display:flex;gap:8px">
+        <a class="btn soft small" id="openExcel" target="_blank" rel="noopener" hidden>Open Excel</a>
+        <button class="btn small" id="signoutBtn" type="button">Sign out</button>
+      </span>
+    </div>
+
+    <form class="card" id="form" novalidate>
+      <div class="row2">
+        <div class="field">
+          <span class="lbl">S.No</span>
+          <div class="sno" id="sno">—</div>
+        </div>
+        <div class="field">
+          <label for="date" class="req">Date</label>
+          <input type="date" id="date" required>
+        </div>
+      </div>
+
+      <div class="row2">
+        <div class="field">
+          <label for="brand" class="req">Brand</label>
+          <select id="brand" required>
+            <option value="">Select…</option>
+            <option>HP</option><option>RICOH</option><option>CANON</option>
+          </select>
+        </div>
+        <div class="field">
+          <label for="floor" class="req">Floor</label>
+          <select id="floor" required>
+            <option value="">Select…</option>
+            <option>B</option><option>1</option><option>2</option><option>3</option><option>4</option><option>5</option><option>6</option><option>7</option><option>8</option><option>9</option><option>10</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="field">
+        <label for="model" class="req">Model No</label>
+        <input type="text" id="model" placeholder="e.g. LaserJet Pro M404dn" autocomplete="off" required>
+      </div>
+
+      <div class="field">
+        <label for="serial" class="req">Printer S.No</label>
+        <div class="serial">
+          <input type="text" id="serial" placeholder="Scan or type" autocomplete="off" autocapitalize="characters" required>
+          <button type="button" class="btn primary" id="scanBtn">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 7V5a1 1 0 0 1 1-1h2M17 4h2a1 1 0 0 1 1 1v2M20 17v2a1 1 0 0 1-1 1h-2M7 20H5a1 1 0 0 1-1-1v-2M8 8v8M11 8v8M14 8v8M17 8v8"/></svg>
+            Scan
+          </button>
+        </div>
+        <input type="file" id="scanFile" class="hidden-input" accept="image/*" capture="environment" tabindex="-1">
+        <div class="hint" id="scanHint">Tap Scan, then photograph the serial-number barcode on the printer label up close.</div>
+      </div>
+
+      <div class="field">
+        <label for="dept" class="req">Dept / Clinic</label>
+        <input type="text" id="dept" list="deptList" placeholder="e.g. OPD – Pediatrics" autocomplete="off" required>
+        <datalist id="deptList"></datalist>
+      </div>
+
+      <div class="field">
+        <span class="lbl req">Printer photo</span>
+        <label class="photo" id="photoBox" for="photoFile"></label>
+        <input type="file" id="photoFile" class="hidden-input" accept="image/*" capture="environment">
+      </div>
+
+      <div id="formMsg" class="banner" hidden></div>
+
+      <button type="submit" class="btn primary" id="saveBtn" style="min-height:52px;font-size:16px">Save printer</button>
+    </form>
+
+    <section style="display:flex;flex-direction:column;gap:12px">
+      <div class="listhead">
+        <h2>Saved printers</h2>
+        <span class="count" id="count"></span>
+      </div>
+      <input type="text" id="search" placeholder="Search serial, model, dept…" autocomplete="off" aria-label="Search saved printers">
+      <div class="items" id="items"><div class="empty">Loading saved printers…</div></div>
+    </section>
+  </div>
+
+  <footer>Kuwait Hospital · IT Department · Prepared and Developed by Mohamed Sirajudeen</footer>
+</div>
+
+<script>
+const $ = id => document.getElementById(id);
+const GRAPH = "https://graph.microsoft.com/v1.0";
+const SCOPES = ["User.Read", "Files.ReadWrite.All"];
+const S = { msal:null, account:null, driveId:null, folderId:null, fileId:null, fileUrl:null,
+            rows:[], blankFirst:false, photo:null, confirmDup:false };
+const pad = n => String(n).padStart(2,"0");
+const todayISO = () => { const d=new Date(); return d.getFullYear()+"-"+pad(d.getMonth()+1)+"-"+pad(d.getDate()); };
+const nowStamp = () => { const d=new Date(); return todayISO()+" "+pad(d.getHours())+":"+pad(d.getMinutes()); };
+function banner(el, cls, text){ el.className="banner "+cls; el.textContent=text; el.hidden=!text; }
+const PHOTO_EMPTY = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/></svg>Tap to take a photo of the printer';
+$("photoBox").innerHTML = PHOTO_EMPTY;
+$("date").value = todayISO();
+
+/* ---------- Sign-in (Microsoft Entra ID) ---------- */
+function redirectUri(){ return location.origin + location.pathname.replace(/index\.html$/,""); }
+
+async function getToken(){
+  const req = { scopes:SCOPES, account:S.account };
+  try { return (await S.msal.acquireTokenSilent(req)).accessToken; }
+  catch(e){
+    if(e instanceof msal.InteractionRequiredAuthError){ await S.msal.acquireTokenRedirect(req); return new Promise(()=>{}); }
+    throw e;
+  }
+}
+async function graph(path, opts={}){
+  const token = await getToken();
+  const res = await fetch(path.startsWith("http")?path:GRAPH+path, {
+    ...opts,
+    headers:{ Authorization:"Bearer "+token, ...(opts.body && !(opts.body instanceof Blob) ? {"Content-Type":"application/json"} : {}), ...(opts.headers||{}) }
+  });
+  if(!res.ok){
+    let msg = res.status+" "+res.statusText;
+    try{ const j=await res.json(); if(j.error) msg = j.error.code+": "+j.error.message; }catch(_){}
+    const err = new Error(msg); err.status = res.status; throw err;
+  }
+  return res.status===204 ? null : res.json();
+}
+
+/* ---------- OneDrive locations ---------- */
+function shareId(url){
+  const b64 = btoa(unescape(encodeURIComponent(url.trim()))).replace(/=+$/,"").replace(/\//g,"_").replace(/\+/g,"-");
+  return "u!"+b64;
+}
+async function locateFiles(){
+  const folder = await graph("/shares/"+shareId(CONFIG.FOLDER_LINK)+"/driveItem");
+  S.driveId = folder.parentReference.driveId; S.folderId = folder.id;
+  const file = await graph("/drives/"+S.driveId+"/items/"+S.folderId+":/"+encodeURIComponent(CONFIG.EXCEL_FILE));
+  S.fileId = file.id; S.fileUrl = file.webUrl;
+  if(S.fileUrl){ $("openExcel").href = S.fileUrl; $("openExcel").hidden = false; }
+}
+function tablePath(){ return "/drives/"+S.driveId+"/items/"+S.fileId+"/workbook/tables/"+encodeURIComponent(CONFIG.TABLE_NAME); }
+
+/* Columns in the Excel table:
+   0 S.No | 1 Date | 2 Brand | 3 Model No | 4 Printer S.No | 5 Dept / Clinic | 6 Floor | 7 Photo | 8 Entered By | 9 Saved At */
+async function loadRows(){
+  const r = await graph(tablePath()+"/rows?$select=values,index");
+  const all = r.value.map(x => x.values[0]);
+  S.blankFirst = all.length>0 && all[0].every(v => v===""||v===null);
+  S.rows = all.filter(v => !v.every(c => c===""||c===null)).map(v => ({
+    sno:Number(v[0])||0, date:excelDate(v[1]), brand:v[2], model:v[3], serial:String(v[4]??""), dept:v[5], floor:String(v[6]??""), by:v[8]
+  }));
+  renderSno(); renderList(); renderDepts();
+}
+function excelDate(v){
+  if(typeof v==="number"){ const d=new Date(Math.round((v-25569)*86400000)); return pad(d.getUTCDate())+"/"+pad(d.getUTCMonth()+1)+"/"+d.getUTCFullYear(); }
+  return v||"";
+}
+
+async function uploadPhoto(blob, name){
+  // make sure the Photos folder exists
+  try{ await graph("/drives/"+S.driveId+"/items/"+S.folderId+":/"+encodeURIComponent(CONFIG.PHOTO_FOLDER)); }
+  catch(e){
+    if(e.status!==404) throw e;
+    try{
+      await graph("/drives/"+S.driveId+"/items/"+S.folderId+"/children", {method:"POST",
+        body:JSON.stringify({name:CONFIG.PHOTO_FOLDER, folder:{}, "@microsoft.graph.conflictBehavior":"fail"})});
+    }catch(e2){ if(e2.status!==409) throw e2; }  // someone else just created it
+  }
+  return graph("/drives/"+S.driveId+"/items/"+S.folderId+":/"+encodeURIComponent(CONFIG.PHOTO_FOLDER)+"/"+encodeURIComponent(name)+":/content?@microsoft.graph.conflictBehavior=rename",
+    {method:"PUT", body:blob, headers:{"Content-Type":"image/jpeg"}});
+}
+
+/* ---------- Barcode scanning from a camera photo (1D barcodes only) ---------- */
+$("scanBtn").addEventListener("click", () => $("scanFile").click());
+$("scanFile").addEventListener("change", async e => {
+  const f = e.target.files[0]; e.target.value = "";
+  if(!f) return;
+  const hint = $("scanHint"); hint.className="hint"; hint.textContent="Reading barcode…";
+  try{
+    const code = await decodeBarcode(f);
+    if(code){ $("serial").value = code.trim().toUpperCase(); hint.className="hint ok"; hint.textContent="Barcode read: "+code.trim()+". Check it matches the label."; S.confirmDup=false; }
+    else { hint.className="hint bad"; hint.textContent="No barcode found. Hold the phone level, fill the photo with the serial barcode, make sure it is sharp, and try again. You can also type the serial."; }
+  }catch(_){ hint.className="hint bad"; hint.textContent="Could not read that photo. Try again or type the serial."; }
+});
+function loadImg(file){ return new Promise((res,rej)=>{ const u=URL.createObjectURL(file); const i=new Image(); i.onload=()=>res({img:i,url:u}); i.onerror=rej; i.src=u; }); }
+function toCanvas(img, maxSide, rotate){
+  const s = Math.min(1, maxSide/Math.max(img.naturalWidth,img.naturalHeight));
+  const w = Math.round(img.naturalWidth*s), h = Math.round(img.naturalHeight*s);
+  const c = document.createElement("canvas"); const x = c.getContext("2d");
+  if(rotate){ c.width=h; c.height=w; x.translate(h,0); x.rotate(Math.PI/2); } else { c.width=w; c.height=h; }
+  x.drawImage(img,0,0,w,h); return c;
+}
+async function decodeBarcode(file){
+  const {img,url} = await loadImg(file);
+  try{
+    if("BarcodeDetector" in window){
+      try{
+        const want=["code_128","code_39","code_93","codabar","ean_13","ean_8","itf","upc_a","upc_e"];
+        const have=await BarcodeDetector.getSupportedFormats(); const formats=want.filter(f=>have.includes(f));
+        if(formats.length){ const r=await new BarcodeDetector({formats}).detect(img); if(r&&r.length) return pickCode(r.map(b=>b.rawValue)); }
+      }catch(_){}
+    }
+    if(!window.ZXing) return null;
+    const Z=window.ZXing, F=Z.BarcodeFormat, hints=new Map();
+    hints.set(Z.DecodeHintType.TRY_HARDER,true);
+    hints.set(Z.DecodeHintType.POSSIBLE_FORMATS,[F.CODE_128,F.CODE_39,F.CODE_93,F.CODABAR,F.EAN_13,F.EAN_8,F.ITF,F.UPC_A,F.UPC_E]);
+    const reader=new Z.MultiFormatReader(); reader.setHints(hints);
+    for(const side of [1600,1100,2400]) for(const rot of [false,true]){
+      try{ const c=toCanvas(img,side,rot); const r=reader.decode(new Z.BinaryBitmap(new Z.HybridBinarizer(new Z.HTMLCanvasElementLuminanceSource(c)))); if(r) return r.getText(); }catch(_){}
+    }
+    return null;
+  } finally { URL.revokeObjectURL(url); }
+}
+function pickCode(list){ return list.filter(Boolean).sort((a,b)=>b.length-a.length)[0]||null; }
+
+/* ---------- Printer photo ---------- */
+$("photoFile").addEventListener("change", async e => {
+  const f=e.target.files[0]; e.target.value="";
+  if(!f) return;
+  try{
+    const {img,url}=await loadImg(f); const c=toCanvas(img,1400,false); URL.revokeObjectURL(url);
+    S.photo = await new Promise(r=>c.toBlob(r,"image/jpeg",0.82));
+    const box=$("photoBox"); box.textContent="";
+    const p=new Image(); p.src=URL.createObjectURL(S.photo); p.alt="Printer photo"; box.append(p);
+    const t=document.createElement("span"); t.textContent="Tap to retake"; box.append(t);
+  }catch(_){ banner($("formMsg"),"bad","That photo could not be opened. Please take it again."); }
+});
+
+/* ---------- Save ---------- */
+function nextSno(){ return S.rows.reduce((m,r)=>Math.max(m,r.sno),0)+1; }
+function renderSno(){ $("sno").textContent = S.fileId ? String(nextSno()) : "—"; }
+
+$("form").addEventListener("submit", async e => {
+  e.preventDefault();
+  const msg=$("formMsg");
+  const v={ date:$("date").value, brand:$("brand").value, model:$("model").value.trim(), serial:$("serial").value.trim().toUpperCase(), dept:$("dept").value.trim(), floor:$("floor").value };
+  const missing=[];
+  if(!v.date)missing.push("Date"); if(!v.brand)missing.push("Brand"); if(!v.model)missing.push("Model No");
+  if(!v.serial)missing.push("Printer S.No"); if(!v.dept)missing.push("Dept / Clinic"); if(!v.floor)missing.push("Floor");
+  if(!S.photo)missing.push("Printer photo");
+  if(missing.length){ banner(msg,"bad","Please fill in: "+missing.join(", ")+"."); return; }
+
+  const btn=$("saveBtn"); btn.disabled=true; btn.innerHTML='<span class="spin"></span> Saving…';
+  try{
+    await loadRows();   // pick up entries saved by others since this page opened
+    const dup=S.rows.find(r=>r.serial.toUpperCase()===v.serial);
+    if(dup && !S.confirmDup){
+      S.confirmDup=true;
+      banner(msg,"warn","Serial "+v.serial+" is already saved as S.No "+dup.sno+" ("+dup.dept+", floor "+dup.floor+"). Tap Save again to add it anyway.");
+      return;
+    }
+    const sno=nextSno();
+    const safe=v.serial.replace(/[^A-Z0-9_-]/gi,"");
+    const up=await uploadPhoto(S.photo, sno+"_"+(safe||"printer")+".jpg");
+    const link=up && up.webUrl ? '=HYPERLINK("'+up.webUrl.replace(/"/g,'""')+'","View photo")' : "";
+    const by=(S.account.name||"")+(S.account.username?" ("+S.account.username+")":"");
+    const values=[[sno, v.date, v.brand, v.model, "'"+v.serial, v.dept, v.floor, link, by, nowStamp()]];
+    if(S.blankFirst){
+      await graph(tablePath()+"/rows/itemAt(index=0)/range", {method:"PATCH", body:JSON.stringify({values})});
+    } else {
+      await graph(tablePath()+"/rows", {method:"POST", body:JSON.stringify({values})});
+    }
+    banner(msg,"ok","Saved S.No "+sno+" · "+v.brand+" "+v.model+" · "+v.serial);
+    resetForm();
+    await loadRows();
+  }catch(err){
+    banner(msg,"bad", explain(err));
+  }finally{ btn.disabled=false; btn.textContent="Save printer"; }
+});
+function resetForm(){
+  $("model").value=""; $("serial").value=""; $("brand").value="";
+  S.photo=null; S.confirmDup=false; $("photoBox").innerHTML=PHOTO_EMPTY;
+  const h=$("scanHint"); h.className="hint"; h.textContent="Tap Scan, then photograph the serial-number barcode on the printer label up close.";
+}
+["serial","brand","model","dept","floor"].forEach(id=>$(id).addEventListener("input",()=>{S.confirmDup=false;}));
+function explain(err){
+  const m=String(err&&err.message||err);
+  if(err&&err.status===403) return "You don't have edit access to the Printer Inventory folder on OneDrive. Ask IT to share it with you.";
+  if(err&&err.status===404) return "The inventory folder or Excel file was not found. Check FOLDER_LINK and EXCEL_FILE in the settings. ("+m+")";
+  if(err&&err.status===409) return "The Excel file is busy. Wait a few seconds and tap Save again.";
+  return "Could not save: "+m;
+}
+
+/* ---------- List ---------- */
+$("search").addEventListener("input", renderList);
+function renderList(){
+  const q=$("search").value.trim().toLowerCase();
+  const rows=[...S.rows].sort((a,b)=>b.sno-a.sno).filter(r=>!q||[r.serial,r.model,r.dept,r.brand,"floor "+r.floor,String(r.sno)].join(" ").toLowerCase().includes(q));
+  $("count").textContent=S.rows.length+(S.rows.length===1?" printer":" printers");
+  const box=$("items"); box.textContent="";
+  if(!S.rows.length){ const d=document.createElement("div"); d.className="empty"; d.textContent="No printers saved yet. Fill in the form above to add the first one."; box.append(d); return; }
+  if(!rows.length){ const d=document.createElement("div"); d.className="empty"; d.textContent="No printer matches “"+q+"”."; box.append(d); return; }
+  for(const r of rows.slice(0,100)){
+    const it=document.createElement("div"); it.className="item";
+    const top=document.createElement("div"); top.className="top";
+    const no=document.createElement("strong"); no.textContent="#"+r.sno;
+    const chip=document.createElement("span"); chip.className="chip"; chip.textContent=r.brand||"";
+    const model=document.createElement("span"); model.textContent=r.model||"";
+    top.append(no,chip,model);
+    const sn=document.createElement("div"); sn.className="sn"; sn.textContent=r.serial;
+    const sub=document.createElement("div"); sub.className="sub"; sub.textContent=(r.dept||"")+" · Floor "+r.floor+" · "+r.date;
+    it.append(top,sn,sub); box.append(it);
+  }
+}
+function renderDepts(){
+  const dl=$("deptList"); dl.textContent="";
+  [...new Set(S.rows.map(r=>r.dept).filter(Boolean))].sort().forEach(d=>{const o=document.createElement("option"); o.value=d; dl.append(o);});
+}
+
+/* ---------- Boot ---------- */
+$("signinBtn").addEventListener("click", () => S.msal.loginRedirect({scopes:SCOPES, prompt:"select_account"}));
+$("signoutBtn").addEventListener("click", () => S.msal.logoutRedirect({account:S.account, postLogoutRedirectUri:redirectUri()}));
+
+(async function boot(){
+  const sb=$("statusBanner");
+  /* ---- SAMPLE MODE: example data, nothing is saved ---- */
+  S.account={name:"Sample User",username:"sample.user@kuwaithospital"};
+  S.fileId="sample";
+  S.rows=[
+    {sno:1,date:"26/10/2026",brand:"HP",model:"LaserJet Pro M404dn",serial:"VNB3K12345",dept:"OPD – Pediatrics",floor:"2"},
+    {sno:2,date:"26/10/2026",brand:"RICOH",model:"IM C3000",serial:"3110R820451",dept:"Radiology Reception",floor:"B"},
+    {sno:3,date:"26/10/2026",brand:"CANON",model:"imageRUNNER 2425",serial:"XLM04887",dept:"Pharmacy",floor:"1"}
+  ];
+  loadRows=async()=>{renderSno();renderList();renderDepts();};
+  uploadPhoto=async()=>({webUrl:""});
+  graph=async(path,opts={})=>{
+    if(opts.body && /\/rows/.test(path)){
+      const v=JSON.parse(opts.body).values[0]; const [y,m,d]=String(v[1]).split("-");
+      S.rows.push({sno:v[0],date:d+"/"+m+"/"+y,brand:v[2],model:v[3],serial:String(v[4]).replace(/^'/,""),dept:v[5],floor:v[6]});
+    }
+    return null;
+  };
+  $("userName").textContent=S.account.name;
+  $("signoutBtn").hidden=true;
+  $("app").hidden=false;
+  banner(sb,"warn","Sample preview with example printers. Entries you add here are kept only until you reload, and nothing goes to OneDrive.");
+  await loadRows();
+  return;
+  if(/PASTE-/.test(CONFIG.CLIENT_ID+CONFIG.TENANT_ID+CONFIG.FOLDER_LINK)){
+    banner(sb,"bad","Setup not finished: open index.html and fill in CLIENT_ID, TENANT_ID and FOLDER_LINK at the top of the file."); return;
+  }
+  if(!window.msal){ banner(sb,"bad","The Microsoft sign-in library did not load. Check your internet connection and reload."); return; }
+  S.msal=new msal.PublicClientApplication({
+    auth:{ clientId:CONFIG.CLIENT_ID, authority:"https://login.microsoftonline.com/"+CONFIG.TENANT_ID, redirectUri:redirectUri(), postLogoutRedirectUri:redirectUri() },
+    cache:{ cacheLocation:"localStorage" }
+  });
+  await S.msal.initialize();
+  try{
+    const r=await S.msal.handleRedirectPromise();
+    if(r && r.account) S.msal.setActiveAccount(r.account);
+  }catch(e){ banner(sb,"bad","Sign-in failed: "+(e.errorMessage||e.message)); }
+  S.account=S.msal.getActiveAccount()||S.msal.getAllAccounts()[0]||null;
+  if(!S.account){ $("signinCard").hidden=false; return; }
+  S.msal.setActiveAccount(S.account);
+  $("userName").textContent=S.account.name||S.account.username;
+  $("app").hidden=false;
+  try{ await locateFiles(); await loadRows(); }
+  catch(e){ banner(sb,"bad",explain(e)); $("items").innerHTML='<div class="empty">Saved printers could not be loaded.</div>'; }
+})();
+</script>
+</body>
+</html>
