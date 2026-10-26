@@ -7,25 +7,12 @@
 <meta name="theme-color" content="#212a5f">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fira+Sans:wght@400;500;600;700&family=Fira+Mono:wght@500&family=Tajawal:wght@500;700&display=swap">
-<script src="https://cdn.jsdelivr.net/npm/@azure/msal-browser@3.28.1/lib/msal-browser.min.js"></script>
 <script src="https://unpkg.com/@zxing/library@0.21.3/umd/index.min.js"></script>
 <script>
 /* =====================================================================
-   SETTINGS — fill these in before uploading to GitHub (see setup steps)
+   SETTING — paste your Power Automate flow address (HTTP URL) below
    ===================================================================== */
-const CONFIG = {
-  // Entra ID > App registrations > KH-Helpdesk App > Overview
-  CLIENT_ID: "c64af434-aaff-4707-9757-c33e3665026a",
-  TENANT_ID: "7571e491-9c53-4562-a9b1-e1b10915387e",
-
-  // OneDrive > "Printer Inventory" folder > Share > Copy link
-  FOLDER_LINK: "https://kwh-my.sharepoint.com/:f:/r/personal/msirajudeen_kuwaithospital_com_kw/Documents/Github%20Inventory?d=w4501b6c2d4264cdcbd5fcbc40f7b58c6&csf=1&web=1&e=iLHa9m",
-
-  // Leave these unless you renamed them
-  EXCEL_FILE: "Printer_Inventory.xlsx",
-  TABLE_NAME: "PrinterInventory",
-  PHOTO_FOLDER: "Photos"
-};
+const FLOW_URL = "https://default7571e4919c534562a9b1e1b1091538.7e.environment.api.powerplatform.com:443/powerautomate/automations/direct/cu/22/workflows/b773cfb6debc496b870183ea1b9e0a6b/triggers/manual/paths/invoke?api-version=1&sp=%2Ftriggers%2Fmanual%2Frun&sv=1.0&sig=zOOtXIJpttBDKor1sxEZ77605sK-cvWZLkImK8KyQvo";
 /* ===================================================================== */
 </script>
 <style>
@@ -114,182 +101,95 @@ footer{font-size:12px;color:var(--muted);text-align:center}
 
   <div id="statusBanner" class="banner warn" hidden></div>
 
-  <!-- Sign-in screen -->
-  <div class="card signin" id="signinCard" hidden>
-    <h2>Sign in to continue</h2>
-    <p>Use your Kuwait Hospital Microsoft account. Printers you save go into the inventory Excel file on OneDrive.</p>
-    <button class="btn primary" id="signinBtn" type="button">Sign in with Microsoft</button>
-  </div>
-
-  <!-- Main app -->
-  <div id="app" hidden style="display:flex;flex-direction:column;gap:20px">
-    <div class="userbar">
-      <span>Signed in as <strong id="userName"></strong></span>
-      <span style="display:flex;gap:8px">
-        <a class="btn soft small" id="openExcel" target="_blank" rel="noopener" hidden>Open Excel</a>
-        <button class="btn small" id="signoutBtn" type="button">Sign out</button>
-      </span>
+  <form class="card" id="form" novalidate>
+    <div class="row2">
+      <div class="field">
+        <label for="by" class="req">Entered by</label>
+        <input type="text" id="by" placeholder="Your name" autocomplete="name" required>
+      </div>
+      <div class="field">
+        <label for="date" class="req">Date</label>
+        <input type="date" id="date" required>
+      </div>
     </div>
 
-    <form class="card" id="form" novalidate>
-      <div class="row2">
-        <div class="field">
-          <span class="lbl">S.No</span>
-          <div class="sno" id="sno">—</div>
-        </div>
-        <div class="field">
-          <label for="date" class="req">Date</label>
-          <input type="date" id="date" required>
-        </div>
-      </div>
-
-      <div class="row2">
-        <div class="field">
-          <label for="brand" class="req">Brand</label>
-          <select id="brand" required>
-            <option value="">Select…</option>
-            <option>HP</option><option>RICOH</option><option>CANON</option>
-          </select>
-        </div>
-        <div class="field">
-          <label for="floor" class="req">Floor</label>
-          <select id="floor" required>
-            <option value="">Select…</option>
-            <option>B</option><option>1</option><option>2</option><option>3</option><option>4</option><option>5</option><option>6</option><option>7</option><option>8</option><option>9</option><option>10</option>
-          </select>
-        </div>
-      </div>
-
+    <div class="row2">
       <div class="field">
-        <label for="model" class="req">Model No</label>
-        <input type="text" id="model" placeholder="e.g. LaserJet Pro M404dn" autocomplete="off" required>
+        <label for="brand" class="req">Brand</label>
+        <select id="brand" required>
+          <option value="">Select…</option>
+          <option>HP</option><option>RICOH</option><option>CANON</option>
+        </select>
       </div>
-
       <div class="field">
-        <label for="serial" class="req">Printer S.No</label>
-        <div class="serial">
-          <input type="text" id="serial" placeholder="Scan or type" autocomplete="off" autocapitalize="characters" required>
-          <button type="button" class="btn primary" id="scanBtn">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 7V5a1 1 0 0 1 1-1h2M17 4h2a1 1 0 0 1 1 1v2M20 17v2a1 1 0 0 1-1 1h-2M7 20H5a1 1 0 0 1-1-1v-2M8 8v8M11 8v8M14 8v8M17 8v8"/></svg>
-            Scan
-          </button>
-        </div>
-        <input type="file" id="scanFile" class="hidden-input" accept="image/*" capture="environment" tabindex="-1">
-        <div class="hint" id="scanHint">Tap Scan, then photograph the serial-number barcode on the printer label up close.</div>
+        <label for="floor" class="req">Floor</label>
+        <select id="floor" required>
+          <option value="">Select…</option>
+          <option>B</option><option>G</option><option>1</option><option>2</option><option>3</option><option>4</option><option>5</option><option>6</option><option>7</option><option>8</option><option>9</option><option>10</option>
+        </select>
       </div>
+    </div>
 
-      <div class="field">
-        <label for="dept" class="req">Dept / Clinic</label>
-        <input type="text" id="dept" list="deptList" placeholder="e.g. OPD – Pediatrics" autocomplete="off" required>
-        <datalist id="deptList"></datalist>
+    <div class="field">
+      <label for="model" class="req">Model No</label>
+      <input type="text" id="model" placeholder="e.g. LaserJet Pro M404dn" autocomplete="off" required>
+    </div>
+
+    <div class="field">
+      <label for="serial" class="req">Printer S.No</label>
+      <div class="serial">
+        <input type="text" id="serial" placeholder="Scan or type" autocomplete="off" autocapitalize="characters" required>
+        <button type="button" class="btn primary" id="scanBtn">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 7V5a1 1 0 0 1 1-1h2M17 4h2a1 1 0 0 1 1 1v2M20 17v2a1 1 0 0 1-1 1h-2M7 20H5a1 1 0 0 1-1-1v-2M8 8v8M11 8v8M14 8v8M17 8v8"/></svg>
+          Scan
+        </button>
       </div>
+      <input type="file" id="scanFile" class="hidden-input" accept="image/*" capture="environment" tabindex="-1">
+      <div class="hint" id="scanHint">Tap Scan, then photograph the serial-number barcode on the printer label up close.</div>
+    </div>
 
-      <div class="field">
-        <span class="lbl req">Printer photo</span>
-        <label class="photo" id="photoBox" for="photoFile"></label>
-        <input type="file" id="photoFile" class="hidden-input" accept="image/*" capture="environment">
-      </div>
+    <div class="field">
+      <label for="dept" class="req">Dept / Clinic</label>
+      <input type="text" id="dept" list="deptList" placeholder="e.g. OPD – Pediatrics" autocomplete="off" required>
+      <datalist id="deptList"></datalist>
+    </div>
 
-      <div id="formMsg" class="banner" hidden></div>
+    <div class="field">
+      <span class="lbl req">Printer photo</span>
+      <label class="photo" id="photoBox" for="photoFile"></label>
+      <input type="file" id="photoFile" class="hidden-input" accept="image/*" capture="environment">
+    </div>
 
-      <button type="submit" class="btn primary" id="saveBtn" style="min-height:52px;font-size:16px">Save printer</button>
-    </form>
+    <div id="formMsg" class="banner" hidden></div>
 
-    <section style="display:flex;flex-direction:column;gap:12px">
-      <div class="listhead">
-        <h2>Saved printers</h2>
-        <span class="count" id="count"></span>
-      </div>
-      <input type="text" id="search" placeholder="Search serial, model, dept…" autocomplete="off" aria-label="Search saved printers">
-      <div class="items" id="items"><div class="empty">Loading saved printers…</div></div>
-    </section>
-  </div>
+    <button type="submit" class="btn primary" id="saveBtn" style="min-height:52px;font-size:16px">Save printer</button>
+  </form>
+
+  <section style="display:flex;flex-direction:column;gap:12px">
+    <div class="listhead">
+      <h2>Saved from this phone</h2>
+      <span class="count" id="count"></span>
+    </div>
+    <div class="items" id="items"></div>
+    <div class="hint">The full list of all printers is in the Excel file on OneDrive.</div>
+  </section>
 
   <footer>Kuwait Hospital · IT Department · Prepared and Developed by Mohamed Sirajudeen</footer>
 </div>
 
 <script>
 const $ = id => document.getElementById(id);
-const GRAPH = "https://graph.microsoft.com/v1.0";
-const SCOPES = ["User.Read", "Files.ReadWrite.All"];
-const S = { msal:null, account:null, driveId:null, folderId:null, fileId:null, fileUrl:null,
-            rows:[], blankFirst:false, photo:null, confirmDup:false };
+const S = { photo:null, recent:[] };
 const pad = n => String(n).padStart(2,"0");
 const todayISO = () => { const d=new Date(); return d.getFullYear()+"-"+pad(d.getMonth()+1)+"-"+pad(d.getDate()); };
-const nowStamp = () => { const d=new Date(); return todayISO()+" "+pad(d.getHours())+":"+pad(d.getMinutes()); };
+const fmtDate = iso => { const [y,m,d]=String(iso).split("-"); return d+"/"+m+"/"+y; };
 function banner(el, cls, text){ el.className="banner "+cls; el.textContent=text; el.hidden=!text; }
+function store(k,v){ try{ if(v===undefined) return JSON.parse(localStorage.getItem(k)||"null"); localStorage.setItem(k,JSON.stringify(v)); }catch(_){ return null; } }
 const PHOTO_EMPTY = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/></svg>Tap to take a photo of the printer';
 $("photoBox").innerHTML = PHOTO_EMPTY;
 $("date").value = todayISO();
-
-/* ---------- Sign-in (Microsoft Entra ID) ---------- */
-function redirectUri(){ return location.origin + location.pathname.replace(/index\.html$/,""); }
-
-async function getToken(){
-  const req = { scopes:SCOPES, account:S.account };
-  try { return (await S.msal.acquireTokenSilent(req)).accessToken; }
-  catch(e){
-    if(e instanceof msal.InteractionRequiredAuthError){ await S.msal.acquireTokenRedirect(req); return new Promise(()=>{}); }
-    throw e;
-  }
-}
-async function graph(path, opts={}){
-  const token = await getToken();
-  const res = await fetch(path.startsWith("http")?path:GRAPH+path, {
-    ...opts,
-    headers:{ Authorization:"Bearer "+token, ...(opts.body && !(opts.body instanceof Blob) ? {"Content-Type":"application/json"} : {}), ...(opts.headers||{}) }
-  });
-  if(!res.ok){
-    let msg = res.status+" "+res.statusText;
-    try{ const j=await res.json(); if(j.error) msg = j.error.code+": "+j.error.message; }catch(_){}
-    const err = new Error(msg); err.status = res.status; throw err;
-  }
-  return res.status===204 ? null : res.json();
-}
-
-/* ---------- OneDrive locations ---------- */
-function shareId(url){
-  const b64 = btoa(unescape(encodeURIComponent(url.trim()))).replace(/=+$/,"").replace(/\//g,"_").replace(/\+/g,"-");
-  return "u!"+b64;
-}
-async function locateFiles(){
-  const folder = await graph("/shares/"+shareId(CONFIG.FOLDER_LINK)+"/driveItem");
-  S.driveId = folder.parentReference.driveId; S.folderId = folder.id;
-  const file = await graph("/drives/"+S.driveId+"/items/"+S.folderId+":/"+encodeURIComponent(CONFIG.EXCEL_FILE));
-  S.fileId = file.id; S.fileUrl = file.webUrl;
-  if(S.fileUrl){ $("openExcel").href = S.fileUrl; $("openExcel").hidden = false; }
-}
-function tablePath(){ return "/drives/"+S.driveId+"/items/"+S.fileId+"/workbook/tables/"+encodeURIComponent(CONFIG.TABLE_NAME); }
-
-/* Columns in the Excel table:
-   0 S.No | 1 Date | 2 Brand | 3 Model No | 4 Printer S.No | 5 Dept / Clinic | 6 Floor | 7 Photo | 8 Entered By | 9 Saved At */
-async function loadRows(){
-  const r = await graph(tablePath()+"/rows?$select=values,index");
-  const all = r.value.map(x => x.values[0]);
-  S.blankFirst = all.length>0 && all[0].every(v => v===""||v===null);
-  S.rows = all.filter(v => !v.every(c => c===""||c===null)).map(v => ({
-    sno:Number(v[0])||0, date:excelDate(v[1]), brand:v[2], model:v[3], serial:String(v[4]??""), dept:v[5], floor:String(v[6]??""), by:v[8]
-  }));
-  renderSno(); renderList(); renderDepts();
-}
-function excelDate(v){
-  if(typeof v==="number"){ const d=new Date(Math.round((v-25569)*86400000)); return pad(d.getUTCDate())+"/"+pad(d.getUTCMonth()+1)+"/"+d.getUTCFullYear(); }
-  return v||"";
-}
-
-async function uploadPhoto(blob, name){
-  // make sure the Photos folder exists
-  try{ await graph("/drives/"+S.driveId+"/items/"+S.folderId+":/"+encodeURIComponent(CONFIG.PHOTO_FOLDER)); }
-  catch(e){
-    if(e.status!==404) throw e;
-    try{
-      await graph("/drives/"+S.driveId+"/items/"+S.folderId+"/children", {method:"POST",
-        body:JSON.stringify({name:CONFIG.PHOTO_FOLDER, folder:{}, "@microsoft.graph.conflictBehavior":"fail"})});
-    }catch(e2){ if(e2.status!==409) throw e2; }  // someone else just created it
-  }
-  return graph("/drives/"+S.driveId+"/items/"+S.folderId+":/"+encodeURIComponent(CONFIG.PHOTO_FOLDER)+"/"+encodeURIComponent(name)+":/content?@microsoft.graph.conflictBehavior=rename",
-    {method:"PUT", body:blob, headers:{"Content-Type":"image/jpeg"}});
-}
+$("by").value = store("kh_by") || "";
+S.recent = store("kh_recent") || [];
 
 /* ---------- Barcode scanning from a camera photo (1D barcodes only) ---------- */
 $("scanBtn").addEventListener("click", () => $("scanFile").click());
@@ -299,7 +199,7 @@ $("scanFile").addEventListener("change", async e => {
   const hint = $("scanHint"); hint.className="hint"; hint.textContent="Reading barcode…";
   try{
     const code = await decodeBarcode(f);
-    if(code){ $("serial").value = code.trim().toUpperCase(); hint.className="hint ok"; hint.textContent="Barcode read: "+code.trim()+". Check it matches the label."; S.confirmDup=false; }
+    if(code){ $("serial").value = code.trim().toUpperCase(); hint.className="hint ok"; hint.textContent="Barcode read: "+code.trim()+". Check it matches the label."; }
     else { hint.className="hint bad"; hint.textContent="No barcode found. Hold the phone level, fill the photo with the serial barcode, make sure it is sharp, and try again. You can also type the serial."; }
   }catch(_){ hint.className="hint bad"; hint.textContent="Could not read that photo. Try again or type the serial."; }
 });
@@ -340,121 +240,69 @@ $("photoFile").addEventListener("change", async e => {
   if(!f) return;
   try{
     const {img,url}=await loadImg(f); const c=toCanvas(img,1400,false); URL.revokeObjectURL(url);
-    S.photo = await new Promise(r=>c.toBlob(r,"image/jpeg",0.82));
+    S.photo = c.toDataURL("image/jpeg",0.8);
     const box=$("photoBox"); box.textContent="";
-    const p=new Image(); p.src=URL.createObjectURL(S.photo); p.alt="Printer photo"; box.append(p);
+    const p=new Image(); p.src=S.photo; p.alt="Printer photo"; box.append(p);
     const t=document.createElement("span"); t.textContent="Tap to retake"; box.append(t);
   }catch(_){ banner($("formMsg"),"bad","That photo could not be opened. Please take it again."); }
 });
 
-/* ---------- Save ---------- */
-function nextSno(){ return S.rows.reduce((m,r)=>Math.max(m,r.sno),0)+1; }
-function renderSno(){ $("sno").textContent = S.fileId ? String(nextSno()) : "—"; }
-
+/* ---------- Save: send to Power Automate ---------- */
 $("form").addEventListener("submit", async e => {
   e.preventDefault();
   const msg=$("formMsg");
-  const v={ date:$("date").value, brand:$("brand").value, model:$("model").value.trim(), serial:$("serial").value.trim().toUpperCase(), dept:$("dept").value.trim(), floor:$("floor").value };
+  const v={ by:$("by").value.trim(), date:$("date").value, brand:$("brand").value, model:$("model").value.trim(),
+            serial:$("serial").value.trim().toUpperCase(), dept:$("dept").value.trim(), floor:$("floor").value };
   const missing=[];
-  if(!v.date)missing.push("Date"); if(!v.brand)missing.push("Brand"); if(!v.model)missing.push("Model No");
-  if(!v.serial)missing.push("Printer S.No"); if(!v.dept)missing.push("Dept / Clinic"); if(!v.floor)missing.push("Floor");
-  if(!S.photo)missing.push("Printer photo");
+  if(!v.by)missing.push("Entered by"); if(!v.date)missing.push("Date"); if(!v.brand)missing.push("Brand");
+  if(!v.model)missing.push("Model No"); if(!v.serial)missing.push("Printer S.No"); if(!v.dept)missing.push("Dept / Clinic");
+  if(!v.floor)missing.push("Floor"); if(!S.photo)missing.push("Printer photo");
   if(missing.length){ banner(msg,"bad","Please fill in: "+missing.join(", ")+"."); return; }
+  if(/PASTE-/.test(FLOW_URL)){ banner(msg,"bad","Setup not finished: paste the Power Automate HTTP URL into FLOW_URL at the top of index.html."); return; }
 
   const btn=$("saveBtn"); btn.disabled=true; btn.innerHTML='<span class="spin"></span> Saving…';
   try{
-    await loadRows();   // pick up entries saved by others since this page opened
-    const dup=S.rows.find(r=>r.serial.toUpperCase()===v.serial);
-    if(dup && !S.confirmDup){
-      S.confirmDup=true;
-      banner(msg,"warn","Serial "+v.serial+" is already saved as S.No "+dup.sno+" ("+dup.dept+", floor "+dup.floor+"). Tap Save again to add it anyway.");
-      return;
-    }
-    const sno=nextSno();
-    const safe=v.serial.replace(/[^A-Z0-9_-]/gi,"");
-    const up=await uploadPhoto(S.photo, sno+"_"+(safe||"printer")+".jpg");
-    const link=up && up.webUrl ? '=HYPERLINK("'+up.webUrl.replace(/"/g,'""')+'","View photo")' : "";
-    const by=(S.account.name||"")+(S.account.username?" ("+S.account.username+")":"");
-    const values=[[sno, v.date, v.brand, v.model, "'"+v.serial, v.dept, v.floor, link, by, nowStamp()]];
-    if(S.blankFirst){
-      await graph(tablePath()+"/rows/itemAt(index=0)/range", {method:"PATCH", body:JSON.stringify({values})});
-    } else {
-      await graph(tablePath()+"/rows", {method:"POST", body:JSON.stringify({values})});
-    }
-    banner(msg,"ok","Saved S.No "+sno+" · "+v.brand+" "+v.model+" · "+v.serial);
-    resetForm();
-    await loadRows();
+    const safe=v.serial.replace(/[^A-Z0-9_-]/gi,"")||"printer";
+    const res = await fetch(FLOW_URL, { method:"POST", headers:{"Content-Type":"application/json"},
+      body: JSON.stringify({ ...v, photoName: safe+".jpg", photo: S.photo.split(",")[1] }) });
+    if(!res.ok) throw new Error("The flow answered "+res.status+". Check the flow's run history in Power Automate.");
+    let out={}; try{ out=await res.json(); }catch(_){}
+    const sno = out.sno ?? "";
+    banner(msg,"ok","Saved"+(sno!==""?" S.No "+sno:"")+" · "+v.brand+" "+v.model+" · "+v.serial);
+    S.recent.unshift({ sno, date:v.date, brand:v.brand, model:v.model, serial:v.serial, dept:v.dept, floor:v.floor });
+    S.recent = S.recent.slice(0,30); store("kh_recent", S.recent);
+    store("kh_by", v.by);
+    resetForm(); renderList();
   }catch(err){
-    banner(msg,"bad", explain(err));
+    banner(msg,"bad", err instanceof TypeError ? "Could not reach the save service. Check the phone's internet connection and try again." : "Could not save: "+err.message);
   }finally{ btn.disabled=false; btn.textContent="Save printer"; }
 });
 function resetForm(){
   $("model").value=""; $("serial").value=""; $("brand").value="";
-  S.photo=null; S.confirmDup=false; $("photoBox").innerHTML=PHOTO_EMPTY;
+  S.photo=null; $("photoBox").innerHTML=PHOTO_EMPTY;
   const h=$("scanHint"); h.className="hint"; h.textContent="Tap Scan, then photograph the serial-number barcode on the printer label up close.";
 }
-["serial","brand","model","dept","floor"].forEach(id=>$(id).addEventListener("input",()=>{S.confirmDup=false;}));
-function explain(err){
-  const m=String(err&&err.message||err);
-  if(err&&err.status===403) return "You don't have edit access to the Printer Inventory folder on OneDrive. Ask IT to share it with you.";
-  if(err&&err.status===404) return "The inventory folder or Excel file was not found. Check FOLDER_LINK and EXCEL_FILE in the settings. ("+m+")";
-  if(err&&err.status===409) return "The Excel file is busy. Wait a few seconds and tap Save again.";
-  return "Could not save: "+m;
-}
 
-/* ---------- List ---------- */
-$("search").addEventListener("input", renderList);
+/* ---------- This phone's recent saves ---------- */
 function renderList(){
-  const q=$("search").value.trim().toLowerCase();
-  const rows=[...S.rows].sort((a,b)=>b.sno-a.sno).filter(r=>!q||[r.serial,r.model,r.dept,r.brand,"floor "+r.floor,String(r.sno)].join(" ").toLowerCase().includes(q));
-  $("count").textContent=S.rows.length+(S.rows.length===1?" printer":" printers");
+  $("count").textContent = S.recent.length ? S.recent.length+(S.recent.length===1?" printer":" printers") : "";
   const box=$("items"); box.textContent="";
-  if(!S.rows.length){ const d=document.createElement("div"); d.className="empty"; d.textContent="No printers saved yet. Fill in the form above to add the first one."; box.append(d); return; }
-  if(!rows.length){ const d=document.createElement("div"); d.className="empty"; d.textContent="No printer matches “"+q+"”."; box.append(d); return; }
-  for(const r of rows.slice(0,100)){
+  if(!S.recent.length){ const d=document.createElement("div"); d.className="empty"; d.textContent="Printers you save on this phone appear here."; box.append(d); }
+  for(const r of S.recent){
     const it=document.createElement("div"); it.className="item";
     const top=document.createElement("div"); top.className="top";
-    const no=document.createElement("strong"); no.textContent="#"+r.sno;
-    const chip=document.createElement("span"); chip.className="chip"; chip.textContent=r.brand||"";
-    const model=document.createElement("span"); model.textContent=r.model||"";
+    const no=document.createElement("strong"); no.textContent = r.sno!==""&&r.sno!=null ? "#"+r.sno : "Saved";
+    const chip=document.createElement("span"); chip.className="chip"; chip.textContent=r.brand;
+    const model=document.createElement("span"); model.textContent=r.model;
     top.append(no,chip,model);
     const sn=document.createElement("div"); sn.className="sn"; sn.textContent=r.serial;
-    const sub=document.createElement("div"); sub.className="sub"; sub.textContent=(r.dept||"")+" · Floor "+r.floor+" · "+r.date;
+    const sub=document.createElement("div"); sub.className="sub"; sub.textContent=r.dept+" · Floor "+r.floor+" · "+fmtDate(r.date);
     it.append(top,sn,sub); box.append(it);
   }
-}
-function renderDepts(){
   const dl=$("deptList"); dl.textContent="";
-  [...new Set(S.rows.map(r=>r.dept).filter(Boolean))].sort().forEach(d=>{const o=document.createElement("option"); o.value=d; dl.append(o);});
+  [...new Set(S.recent.map(r=>r.dept))].sort().forEach(d=>{const o=document.createElement("option"); o.value=d; dl.append(o);});
 }
-
-/* ---------- Boot ---------- */
-$("signinBtn").addEventListener("click", () => S.msal.loginRedirect({scopes:SCOPES, prompt:"select_account"}));
-$("signoutBtn").addEventListener("click", () => S.msal.logoutRedirect({account:S.account, postLogoutRedirectUri:redirectUri()}));
-
-(async function boot(){
-  const sb=$("statusBanner");
-  if(/PASTE-/.test(CONFIG.CLIENT_ID+CONFIG.TENANT_ID+CONFIG.FOLDER_LINK)){
-    banner(sb,"bad","Setup not finished: open index.html and fill in CLIENT_ID, TENANT_ID and FOLDER_LINK at the top of the file."); return;
-  }
-  if(!window.msal){ banner(sb,"bad","The Microsoft sign-in library did not load. Check your internet connection and reload."); return; }
-  S.msal=new msal.PublicClientApplication({
-    auth:{ clientId:CONFIG.CLIENT_ID, authority:"https://login.microsoftonline.com/"+CONFIG.TENANT_ID, redirectUri:redirectUri(), postLogoutRedirectUri:redirectUri() },
-    cache:{ cacheLocation:"localStorage" }
-  });
-  await S.msal.initialize();
-  try{
-    const r=await S.msal.handleRedirectPromise();
-    if(r && r.account) S.msal.setActiveAccount(r.account);
-  }catch(e){ banner(sb,"bad","Sign-in failed: "+(e.errorMessage||e.message)); }
-  S.account=S.msal.getActiveAccount()||S.msal.getAllAccounts()[0]||null;
-  if(!S.account){ $("signinCard").hidden=false; return; }
-  S.msal.setActiveAccount(S.account);
-  $("userName").textContent=S.account.name||S.account.username;
-  $("app").hidden=false;
-  try{ await locateFiles(); await loadRows(); }
-  catch(e){ banner(sb,"bad",explain(e)); $("items").innerHTML='<div class="empty">Saved printers could not be loaded.</div>'; }
-})();
+renderList();
 </script>
 </body>
 </html>
