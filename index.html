@@ -78,6 +78,15 @@ input:focus,select:focus,button:focus-visible{outline:2px solid var(--accent);ou
 .chip{font-size:11px;font-weight:700;letter-spacing:.05em;padding:2px 7px;border-radius:99px;background:var(--accent-soft)}
 .item .sn{font-family:var(--mono);font-size:14px;overflow-wrap:anywhere}
 .item .sub{font-size:13px;color:var(--muted);overflow-wrap:anywhere}
+.done{align-items:center;text-align:center;padding:32px 18px}
+.done .tick{width:64px;height:64px;border-radius:50%;background:var(--ok-soft);color:var(--ok);display:flex;align-items:center;justify-content:center}
+.done .tick svg{width:34px;height:34px}
+.done h2{font-size:22px}
+.done .bigno{font-family:var(--mono);font-size:40px;font-weight:500;color:var(--accent);font-variant-numeric:tabular-nums;line-height:1.1}
+.done dl{display:grid;grid-template-columns:auto 1fr;gap:6px 14px;margin:0;text-align:left;font-size:14px;width:100%;max-width:340px}
+.done dt{color:var(--muted)} .done dd{margin:0;overflow-wrap:anywhere;font-weight:500}
+.done .thumb{max-height:140px;border-radius:8px}
+.done .count{font-size:14px;color:var(--muted)}
 .empty{text-align:center;color:var(--muted);padding:24px 12px;border:1px dashed var(--line);border-radius:var(--r);font-size:14px}
 .spin{width:18px;height:18px;border:2.5px solid currentColor;border-right-color:transparent;border-radius:50%;animation:s .8s linear infinite}
 @keyframes s{to{transform:rotate(360deg)}}
@@ -165,6 +174,16 @@ footer{font-size:12px;color:var(--muted);text-align:center}
     <button type="submit" class="btn primary" id="saveBtn" style="min-height:52px;font-size:16px">Save printer</button>
   </form>
 
+  <section class="card done" id="doneCard" hidden aria-live="polite">
+    <div class="tick"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></div>
+    <h2>Printer saved</h2>
+    <div><div class="lbl">S.No</div><div class="bigno" id="doneSno">—</div></div>
+    <img class="thumb" id="donePhoto" alt="Printer photo">
+    <dl id="doneList"></dl>
+    <button type="button" class="btn primary" id="nextBtn" style="min-height:52px;font-size:16px;width:100%;max-width:340px">Add next printer</button>
+    <div class="count" id="doneCount"></div>
+  </section>
+
   <section style="display:flex;flex-direction:column;gap:12px">
     <div class="listhead">
       <h2>Saved from this phone</h2>
@@ -241,6 +260,7 @@ $("photoFile").addEventListener("change", async e => {
   try{
     const {img,url}=await loadImg(f); const c=toCanvas(img,1400,false); URL.revokeObjectURL(url);
     S.photo = c.toDataURL("image/jpeg",0.8);
+    S.thumb = toCanvas(img,480,false).toDataURL("image/jpeg",0.7);   // small copy shown inside Excel
     const box=$("photoBox"); box.textContent="";
     const p=new Image(); p.src=S.photo; p.alt="Printer photo"; box.append(p);
     const t=document.createElement("span"); t.textContent="Tap to retake"; box.append(t);
@@ -264,22 +284,47 @@ $("form").addEventListener("submit", async e => {
   try{
     const safe=v.serial.replace(/[^A-Z0-9_-]/gi,"")||"printer";
     const res = await fetch(FLOW_URL, { method:"POST", headers:{"Content-Type":"application/json"},
-      body: JSON.stringify({ ...v, photoName: safe+".jpg", photo: S.photo.split(",")[1] }) });
+      body: JSON.stringify({ ...v, photoName: safe+".jpg", photo: S.photo.split(",")[1], thumb: (S.thumb||S.photo).split(",")[1] }) });
     if(!res.ok) throw new Error("The flow answered "+res.status+". Check the flow's run history in Power Automate.");
     let out={}; try{ out=await res.json(); }catch(_){}
     const sno = out.sno ?? "";
-    banner(msg,"ok","Saved"+(sno!==""?" S.No "+sno:"")+" · "+v.brand+" "+v.model+" · "+v.serial);
+    banner(msg,"","");
+    showDone(sno, v, S.photo);
     S.recent.unshift({ sno, date:v.date, brand:v.brand, model:v.model, serial:v.serial, dept:v.dept, floor:v.floor });
     S.recent = S.recent.slice(0,30); store("kh_recent", S.recent);
     store("kh_by", v.by);
-    resetForm(); renderList();
+    renderList();
   }catch(err){
     banner(msg,"bad", err instanceof TypeError ? "Could not reach the save service. Check the phone's internet connection and try again." : "Could not save: "+err.message);
   }finally{ btn.disabled=false; btn.textContent="Save printer"; }
 });
+/* ---------- Success screen, then a fresh form after 10 seconds ---------- */
+let doneTimer=null;
+function showDone(sno, v, photo){
+  $("doneSno").textContent = (sno!==""&&sno!=null) ? String(sno) : "—";
+  $("donePhoto").src = photo;
+  const dl=$("doneList"); dl.textContent="";
+  [["Brand",v.brand],["Model No",v.model],["Printer S.No",v.serial],["Dept / Clinic",v.dept],["Floor",v.floor],["Date",fmtDate(v.date)],["Entered by",v.by]].forEach(([k,val])=>{
+    const dt=document.createElement("dt"); dt.textContent=k; const dd=document.createElement("dd"); dd.textContent=val; dl.append(dt,dd);
+  });
+  $("form").hidden=true; $("doneCard").hidden=false;
+  window.scrollTo({top:0,behavior:"smooth"});
+  let left=10; const tick=()=>{ $("doneCount").textContent="A new form opens in "+left+" second"+(left===1?"":"s")+"."; };
+  tick(); clearInterval(doneTimer);
+  doneTimer=setInterval(()=>{ left--; if(left<=0) newEntry(); else tick(); },1000);
+}
+function newEntry(){
+  clearInterval(doneTimer); doneTimer=null;
+  resetForm();
+  $("doneCard").hidden=true; $("form").hidden=false;
+  window.scrollTo({top:0,behavior:"smooth"});
+}
+$("nextBtn").addEventListener("click", newEntry);
+
 function resetForm(){
-  $("model").value=""; $("serial").value=""; $("brand").value="";
-  S.photo=null; $("photoBox").innerHTML=PHOTO_EMPTY;
+  $("model").value=""; $("serial").value=""; $("brand").value=""; $("dept").value=""; $("floor").value="";
+  $("date").value=todayISO(); banner($("formMsg"),"","");
+  S.photo=null; S.thumb=null; $("photoBox").innerHTML=PHOTO_EMPTY;
   const h=$("scanHint"); h.className="hint"; h.textContent="Tap Scan, then photograph the serial-number barcode on the printer label up close.";
 }
 
