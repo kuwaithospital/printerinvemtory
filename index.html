@@ -45,7 +45,14 @@ h2{margin:0;font-size:17px;font-weight:600}
 .userbar{display:flex;align-items:center;justify-content:space-between;gap:10px;font-size:14px;color:var(--muted);flex-wrap:wrap}
 .userbar strong{color:var(--ink);font-weight:600;overflow-wrap:anywhere}
 .card{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:18px;display:flex;flex-direction:column;gap:16px}
-.row2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.row2{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:12px}
+html,body{overflow-x:hidden}
+input,select{min-width:0;max-width:100%}
+.datebox{position:relative}
+.datebox .shown{display:flex;align-items:center;justify-content:space-between;gap:8px;width:100%;font-size:16px;color:var(--ink);background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:11px 12px;min-height:46px;font-variant-numeric:tabular-nums}
+.datebox .shown svg{width:18px;height:18px;color:var(--muted);flex:none}
+.datebox input{position:absolute;inset:0;width:100%;height:100%;opacity:0.011;cursor:pointer;-webkit-appearance:none;appearance:none}
+.datebox:focus-within .shown{outline:2px solid var(--accent);outline-offset:2px}
 .field{display:flex;flex-direction:column;gap:6px;min-width:0}
 label,.lbl{font-size:13px;font-weight:600;color:var(--muted)}
 .req::after{content:" *";color:var(--bad)}
@@ -118,7 +125,7 @@ footer{font-size:12px;color:var(--muted);text-align:center}
       </div>
       <div class="field">
         <label for="date" class="req">Date</label>
-        <input type="date" id="date" required>
+        <div class="datebox"><div class="shown" aria-hidden="true"><span id="dateShown">dd/mm/yyyy</span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3.5" y="5" width="17" height="15" rx="2"/><path d="M3.5 10h17M8 3v4M16 3v4"/></svg></div><input type="date" id="date" required></div>
       </div>
     </div>
 
@@ -207,6 +214,8 @@ function store(k,v){ try{ if(v===undefined) return JSON.parse(localStorage.getIt
 const PHOTO_EMPTY = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/></svg>Tap to take a photo of the printer';
 $("photoBox").innerHTML = PHOTO_EMPTY;
 $("date").value = todayISO();
+function showDate(){ $("dateShown").textContent = $("date").value ? fmtDate($("date").value) : "dd/mm/yyyy"; }
+$("date").addEventListener("input", showDate); $("date").addEventListener("change", showDate); showDate();
 $("by").value = store("kh_by") || "";
 S.recent = store("kh_recent") || [];
 
@@ -323,7 +332,7 @@ $("nextBtn").addEventListener("click", newEntry);
 
 function resetForm(){
   $("model").value=""; $("serial").value=""; $("brand").value=""; $("dept").value=""; $("floor").value="";
-  $("date").value=todayISO(); banner($("formMsg"),"","");
+  $("date").value=todayISO(); showDate(); banner($("formMsg"),"","");
   S.photo=null; S.thumb=null; $("photoBox").innerHTML=PHOTO_EMPTY;
   const h=$("scanHint"); h.className="hint"; h.textContent="Tap Scan, then photograph the serial-number barcode on the printer label up close.";
 }
