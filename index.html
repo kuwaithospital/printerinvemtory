@@ -1408,7 +1408,7 @@ function showToners() {
 function resetService() {
   $("svForm").reset(); $("svBy").value = me.name; $("svDate").value = ddmmyyyy(new Date());
   $("svBrand").innerHTML = PRINTER_BRANDS.map(b => `<option>${b}</option>`).join(""); $("svBrand").value = "HP"; $("svModel").value = ""; $("svModel").classList.add("hidden");
-  if ($("svPick")) $("svPick").innerHTML = ""; svHint = null;
+  if ($("svPick")) $("svPick").innerHTML = ""; svHint = null; $("svSerial").placeholder = "Scan, type serial, model or toner No";
   $("svDetails").disabled = true; $("svModelBox").disabled = true; $("svMaint").disabled = true; $("svJob").disabled = true; $("svSave").disabled = true; $("svSerial").readOnly = false;
   clearPhoto("svBefore", "svBeforeImg"); clearPhoto("svAfter", "svAfterImg");
   svState = null; msg("svMsg"); fillItems(); fillTModels("");
@@ -1430,8 +1430,10 @@ $("svTModel").onchange = () => {
   $("svModel").classList.toggle("hidden", !other); if (other) $("svModel").focus();
   showToners();
 };
-let svHint = null;   // toner number typed instead of a serial: remembered to set the model and tick the toner
+let svHint = null;
+$("svTModel").addEventListener("change", () => { if (svHint && !svState) svHint.chosen = $("svTModel").value; });   // toner number typed instead of a serial: remembered to set the model and tick the toner
 async function svLookup() {
+  if (svState) { const v = $("svSerial").value, h = svHint; resetService(); $("svSerial").value = v; svHint = h; }   // checking another printer: start clean
   const s = $("svSerial").value.trim(); if (!s) { msg("svMsg", "warn", "Scan or type a serial number first."); return; }
   msg("svMsg", "warn", "Checking serial…");
   try { await load(); } catch (e) { msg("svMsg", "err", "Could not check: " + e.message); return; }
@@ -1446,10 +1448,15 @@ async function svLookup() {
     msg("svMsg", "ok", `${tn.code} is the ${tn.color} toner for ${tn.models.join(" / ")}. ${prs.length ? "Choose the printer below, or scan the printer's serial" : "No printer of that model is registered yet — scan the printer's serial"}; the model and toner will be filled in for you.`);
     $("svPick").innerHTML = prs.slice(0, 12).map(a => `<button type="button" data-s="${esc(a.Serial_No)}"><span class="si">🖨️</span><span><b>${esc(a.Serial_No)}</b><small>${esc([a.Model, a.Floor, a.Clinic_Department].filter(Boolean).join(" · "))}</small></span></button>`).join("");
     $("svPick").querySelectorAll("button").forEach(b => b.onclick = () => { $("svSerial").value = b.dataset.s; svLookup(); });
-    $("svSerial").focus(); return;
+    // show the printer model and its toners right away (the serial is still needed to save)
+    $("svModelBox").disabled = false; $("svMaint").disabled = false;
+    fillTModels(tn.models[0]);
+    const cb = [...document.querySelectorAll("#svToners input")].find(x => codeKey(x.value) === tn.code);
+    if (cb) { cb.checked = true; cb.closest(".toner").classList.add("on"); }
+    $("svSerial").placeholder = "Now scan or type the printer's serial No"; $("svSerial").focus(); return;
   }
   if (p && p.Asset_Type && p.Asset_Type !== "Printer") { msg("svMsg", "warn", `${s} is a ${String(p.Asset_Type).toLowerCase()}, not a printer.`); return; }
-  $("svSerial").readOnly = true; $("svMaint").disabled = false; $("svJob").disabled = false; $("svSave").disabled = false;
+  $("svMaint").disabled = false; $("svJob").disabled = false; $("svSave").disabled = false;
   if (p) {
     svState = "existing";
     const br = String(p.Brand || "HP").trim();   // older non-HP printers keep showing their own brand
@@ -1461,7 +1468,7 @@ async function svLookup() {
     msg("svMsg", "ok", "New printer — choose the model, then enter floor and department.");
   }
   $("svModelBox").disabled = false; $("svModel").classList.add("hidden");
-  const hintModel = svHint && !p ? svHint.models[0] : "";
+  const hintModel = svHint && !p ? (svHint.chosen || svHint.models[0]) : "";
   fillTModels(p ? p.Model : hintModel); fillItems();
   if (svHint) {   // tick the toner that was searched for, if this printer uses it
     const cb = [...document.querySelectorAll("#svToners input")].find(x => codeKey(x.value) === svHint.code);
@@ -1473,6 +1480,9 @@ async function svLookup() {
   const h = DB.logs.filter(l => U(l.Serial_No) === U(s)).sort((a, b) => (parseDMY(b.Log_Date, b.Log_Time) || 0) - (parseDMY(a.Log_Date, a.Log_Time) || 0)).slice(0, 6);
   $("svHistory").innerHTML = h.length ? h.map(l => `<li>${esc(l.Log_Date)} — ${esc(l.Toner_Item || "not from stock")}, reading ${esc(l.Printout_Reading)}${l.Spareparts_Replacement && l.Spareparts_Replacement !== "None" ? ", parts: " + esc(l.Spareparts_Replacement) : ""}${l.Ticket_ID ? ", ticket " + esc(l.Ticket_ID) : ""}${l.Requested_By ? ", req. by " + esc(l.Requested_By) : ""} · ${esc(l.Entered_By)}</li>`).join("") : `<li class="muted">No toner changes yet</li>`;
 }
+$("svSerial").addEventListener("input", () => { if (svState) { const v = $("svSerial").value; resetService(); $("svSerial").value = v; } });
+$("asSerial").addEventListener("input", () => { if (asState) { resetAsset(true); } });
+$("stCode").addEventListener("input", () => { if (stState && stState !== "edit") { const v = $("stCode").value; resetStock(); $("stCode").value = v; } });
 $("svCheck").onclick = svLookup; enterKey("svSerial", svLookup); setupLookup("svSerial", svSuggest, svLookup);
 $("svForm").onsubmit = async e => {
   e.preventDefault();
@@ -1527,7 +1537,7 @@ async function asLookup() {
   const s = $("asSerial").value.trim(); if (!s) { msg("asMsg", "warn", "Scan or type a serial number first."); return; }
   msg("asMsg", "warn", "Checking serial…");
   try { await load(); } catch (e) { msg("asMsg", "err", "Could not check: " + e.message); return; }
-  resetAsset(true); $("asSerial").readOnly = true;
+  resetAsset(true);
   const a = findAsset(s);
   if (a) {
     asState = "existing";
@@ -1865,13 +1875,14 @@ function resetStock() {
 }
 async function stLookup() {
   if (stState === "edit") return;
+  if (stState) { const v = $("stCode").value; resetStock(); $("stCode").value = v; }   // checking another item: start clean
   let c = $("stCode").value.trim(); if (!c) { msg("stMsg", "warn", "Scan or type an item code first."); return; }
   msg("stMsg", "warn", "Checking item…");
   try { await load(); } catch (e) { msg("stMsg", "err", "Could not check: " + e.message); return; }
   const i = stockOf(c), tn = tonerInfo(c);
   $("stCode").value = i ? i.Item_Code : (tn ? tn.code : c);        // a scanned "1PW9092MC" becomes W9092MC
   stFix = null;
-  $("stCode").readOnly = true; $("stMove").disabled = false; $("stSave").disabled = false;
+  $("stMove").disabled = false; $("stSave").disabled = false;
   if (i) {
     stState = "existing"; $("stItem").disabled = true;
     $("stName").value = i.Item_Name || ""; $("stType").value = i.Item_Type || "Other"; $("stBrand").value = i.Brand || ""; $("stModels").value = fitsFor(i).join(", ");
