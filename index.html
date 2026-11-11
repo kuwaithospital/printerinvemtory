@@ -297,6 +297,13 @@
   .hist .hrow small{display:block;color:var(--muted);font-size:12px;margin-top:2px}
   .hist .hnone{padding:12px;color:var(--muted);font-size:14px;border-top:1px solid var(--line)}
   .hist #svHistory{max-height:340px;overflow:auto}
+  .ppbtns{display:flex;gap:8px;flex-wrap:wrap}
+  #appRoot .ppbtns .btn{flex:1 1 140px;margin:0;padding:11px 12px;font-size:14px;color:var(--brand);font-weight:600;display:inline-flex;align-items:center;justify-content:center;gap:6px;cursor:pointer;white-space:nowrap}
+  .pclear{border:0;background:none;color:#b3261e;font-size:13px;cursor:pointer;padding:4px 0;margin-top:2px}
+  .wcam{position:fixed;inset:0;background:rgba(10,14,40,.75);z-index:200;display:flex;align-items:center;justify-content:center;padding:16px}
+  .wcbox{background:#fff;border-radius:14px;padding:14px;max-width:760px;width:100%}
+  .wcbox video{width:100%;border-radius:10px;background:#000;max-height:70vh}
+  .wcbtns{display:flex;gap:10px;margin-top:10px}.wcbtns .btn{margin:0}
   .people{display:flex;flex-direction:column;gap:10px;margin-top:8px}
   .person{border:1px solid var(--line);border-radius:10px;padding:10px 12px 12px;background:#f7f8fc;position:relative}
   .person .ptop{display:flex;align-items:center;gap:8px}
@@ -502,8 +509,14 @@
           <select id="svItem"></select>
         </div>
         <div class="photos">
-          <div><label>Toner (Before) photo <span class="req">*</span></label><input type="file" id="svBefore" accept="image/*" capture="environment"><img id="svBeforeImg" class="thumb" alt="Toner before"></div>
-          <div><label>Toner (After) photo <span class="req">*</span></label><input type="file" id="svAfter" accept="image/*" capture="environment"><img id="svAfterImg" class="thumb" alt="Toner after"></div>
+          <div><div class="ppick"><label>Toner (Before) photo <span class="req">*</span></label>
+            <div class="ppbtns"><button type="button" class="btn secondary pcam" data-for="svBefore">📷 Camera</button><label class="btn secondary" for="svBefore">🖼️ Attach / Gallery</label></div>
+            <input type="file" id="svBefore" accept="image/*" class="hidefile"><input type="file" id="svBeforeCam" accept="image/*" capture="environment" class="hidefile">
+            <img id="svBeforeImg" class="thumb" alt="Toner before"><button type="button" class="pclear hidden" data-for="svBefore">Remove photo</button></div></div>
+          <div><div class="ppick"><label>Toner (After) photo <span class="req">*</span></label>
+            <div class="ppbtns"><button type="button" class="btn secondary pcam" data-for="svAfter">📷 Camera</button><label class="btn secondary" for="svAfter">🖼️ Attach / Gallery</label></div>
+            <input type="file" id="svAfter" accept="image/*" class="hidefile"><input type="file" id="svAfterCam" accept="image/*" capture="environment" class="hidefile">
+            <img id="svAfterImg" class="thumb" alt="Toner after"><button type="button" class="pclear hidden" data-for="svAfter">Remove photo</button></div></div>
         </div>
       </fieldset>
       <fieldset id="svDetails">
@@ -624,8 +637,10 @@
             </div>
           </div>
         </div>
-        <label>Photo (shown inside the Excel cell) <span id="asPhotoLink"></span></label>
-        <input type="file" id="asPhoto" accept="image/*" capture="environment"><img id="asPhotoImg" class="thumb" alt="Asset photo">
+        <div class="ppick"><label>Photo (shown inside the Excel cell) <span id="asPhotoLink"></span></label>
+            <div class="ppbtns"><button type="button" class="btn secondary pcam" data-for="asPhoto">📷 Camera</button><label class="btn secondary" for="asPhoto">🖼️ Attach / Gallery</label></div>
+            <input type="file" id="asPhoto" accept="image/*" class="hidefile"><input type="file" id="asPhotoCam" accept="image/*" capture="environment" class="hidefile">
+            <img id="asPhotoImg" class="thumb" alt="Asset photo"><button type="button" class="pclear hidden" data-for="asPhoto">Remove photo</button></div>
         <label>Notes</label><input id="asNotes" placeholder="Optional">
         <button type="submit" class="btn" id="asSave">Save asset</button>
       </fieldset>
@@ -1181,15 +1196,46 @@ async function toCellThumb(file) {
   c.getContext("2d").drawImage(img, sx, sy, sw, sh, 0, 0, W, H); URL.revokeObjectURL(img.src);
   return c.toDataURL("image/jpeg", .75).split(",")[1];
 }
+/* photo boxes: 📷 Camera (phone camera, or the PC webcam) and 🖼️ Attach / Gallery (file on PC, gallery on phone) */
+async function setPhoto(input, preview, withThumb, f) {
+  photos[input] = await toJpeg(f);
+  if (withThumb) photos[input + "Thumb"] = await toCellThumb(f);
+  $(preview).src = "data:image/jpeg;base64," + photos[input]; $(preview).style.display = "block";
+  const rm = document.querySelector(`.pclear[data-for="${input}"]`); if (rm) rm.classList.remove("hidden");
+}
 function bindPhoto(input, preview, withThumb) {
-  $(input).onchange = async e => {
-    const f = e.target.files[0]; if (!f) return;
-    photos[input] = await toJpeg(f);
-    if (withThumb) photos[input + "Thumb"] = await toCellThumb(f);
-    $(preview).src = "data:image/jpeg;base64," + photos[input]; $(preview).style.display = "block";
+  const take = async e => { const f = e.target.files[0]; e.target.value = ""; if (f) await setPhoto(input, preview, withThumb, f); };
+  $(input).onchange = take; if ($(input + "Cam")) $(input + "Cam").onchange = take;
+  const cam = document.querySelector(`.pcam[data-for="${input}"]`);
+  if (cam) cam.onclick = () => {
+    const phone = window.matchMedia("(pointer:coarse)").matches;
+    if (phone || !(navigator.mediaDevices && navigator.mediaDevices.getUserMedia)) { $(input + "Cam").click(); return; }
+    webcamShot(f => setPhoto(input, preview, withThumb, f), () => $(input).click());
+  };
+  const rm = document.querySelector(`.pclear[data-for="${input}"]`); if (rm) rm.onclick = () => clearPhoto(input, preview);
+}
+function clearPhoto(input, preview) {
+  photos[input] = ""; photos[input + "Thumb"] = ""; $(input).value = ""; if ($(input + "Cam")) $(input + "Cam").value = "";
+  $(preview).style.display = "none"; $(preview).src = "";
+  const rm = document.querySelector(`.pclear[data-for="${input}"]`); if (rm) rm.classList.add("hidden");
+}
+/* PC webcam: live preview, Take photo / Cancel */
+async function webcamShot(done, fallback) {
+  let stream;
+  try { stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment", width: { ideal: 1920 } }, audio: false }); }
+  catch (e) { alert("No camera found on this computer (or access was blocked). Choose a photo file instead."); fallback(); return; }
+  const box = document.createElement("div"); box.className = "wcam";
+  box.innerHTML = `<div class="wcbox"><video autoplay playsinline></video><div class="wcbtns"><button type="button" class="btn">📸 Take photo</button><button type="button" class="btn secondary">Cancel</button></div></div>`;
+  document.body.appendChild(box);
+  const v = box.querySelector("video"); v.srcObject = stream;
+  const close = () => { stream.getTracks().forEach(t => t.stop()); box.remove(); };
+  const [shoot, cancel] = box.querySelectorAll("button");
+  cancel.onclick = close;
+  shoot.onclick = () => {
+    const c = document.createElement("canvas"); c.width = v.videoWidth; c.height = v.videoHeight; c.getContext("2d").drawImage(v, 0, 0);
+    c.toBlob(b => { close(); if (b) done(new File([b], "webcam.jpg", { type: "image/jpeg" })); }, "image/jpeg", .92);
   };
 }
-function clearPhoto(input, preview) { photos[input] = ""; photos[input + "Thumb"] = ""; $(input).value = ""; $(preview).style.display = "none"; $(preview).src = ""; }
 
 /* ---------------- handover forms (PDF or photo) ---------------- */
 const docs = {};
