@@ -266,7 +266,8 @@
   .pick:empty{display:none}
   .pick button{display:flex;gap:10px;align-items:center;text-align:left;width:100%;border:1px solid var(--line);background:#fff;border-radius:10px;padding:9px 12px;font:inherit;font-size:14px;cursor:pointer;color:var(--ink)}
   .pick button:hover{background:var(--brand2);border-color:var(--brand)}
-  .pick .si{font-size:18px}.pick small{display:block;color:var(--muted);font-size:12px}
+  .pick .si{font-size:18px}
+  .pick .pacc{display:flex;gap:10px;align-items:center;border:1px dashed var(--line);border-radius:10px;padding:8px 12px;font-size:14px;color:var(--ink)}.pick small{display:block;color:var(--muted);font-size:12px}
   .lkin{position:relative;flex:1;min-width:0;display:flex}
   .lkin input{padding-right:84px!important}
   .lkx{position:absolute;right:6px;top:50%;transform:translateY(-50%);border:1px solid var(--line);background:#fff;color:#b3261e;border-radius:16px;padding:4px 10px;font:600 13px "Fira Sans",system-ui,sans-serif;cursor:pointer;white-space:nowrap}
@@ -535,7 +536,7 @@
    <div class="grid">
     <div>
       <h2>Register, update or move an asset</h2>
-      <label>Serial No <span class="muted">— or search by tag, model, part No, user</span></label>
+      <label>Serial No <span class="muted">— or search by Employee ID, user, tag, model</span></label>
       <div class="lookup">
         <div class="row"><span class="lkin"><input id="asSerial" placeholder="Scan, type serial, tag, model or user" autocomplete="off"><button type="button" class="lkx" data-x="asSerial" title="Clear and start a new search">✕ New</button></span><button type="button" class="btn secondary cam" data-cam="asSerial" title="Scan with camera">📷 <span>Camera</span></button><label class="btn secondary att" for="asSerialFile" title="Read a barcode from a photo">📎 <span>Attach</span></label><input type="file" id="asSerialFile" accept="image/*" class="hidefile"></div>
         <div class="sugg hidden" id="asSerialSug"></div>
@@ -543,6 +544,7 @@
       <div id="asSerialReader" class="reader hidden"></div>
       <button type="button" class="btn secondary" id="asCheck">Check serial</button>
       <div id="asMsg"></div>
+      <div id="asPick" class="pick"></div>
       <p class="muted" style="font-size:13px;margin:10px 0 0">Received several of the same model? Use <a href="#bulk" id="bkJump">Bulk register</a>. Giving a user a full set (PC, monitor, phone, keyboard…)? Use <a href="#kit" id="kiJump">Issue to a user</a>.</p>
       <div id="asFound" class="hidden">
         <div class="found"><div class="pic" id="asIcon"></div><dl id="asDetails"></dl></div>
@@ -1394,9 +1396,13 @@ function svSuggest(q, raw) {
   return direct.map(a => assetHit(a, "Printers")).concat(byToner.map(a => assetHit(a, `Printers using toner ${codeKey(raw)}…`)));
 }
 function asSuggest(q, raw) {
+  const ppl = []; const seen = new Set();
+  DB.assets.forEach(a => { if (a.Employee_ID && String(a.Employee_ID).toLowerCase().includes(q) && !seen.has(a.Employee_ID)) { seen.add(a.Employee_ID);
+    const n = DB.assets.filter(x => x.Employee_ID === a.Employee_ID).length;
+    ppl.push({ head: "Employees", icon: "👤", title: `${a.Assigned_User || "Employee"} · Emp ID ${a.Employee_ID}`, sub: `${n} asset${n === 1 ? "" : "s"} — ${[a.Clinic_Department, a.Floor].filter(Boolean).join(" · ")}`, value: a.Employee_ID }); } });
   const direct = DB.assets.filter(a => hayHit(q, a.Serial_No, a.Asset_Tag, a.Model, a.Brand, a.Asset_Type, a.Assigned_User, a.Employee_ID, a.Hostname, a.IP_Address, a.MAC_Address, a.Clinic_Department, a.Ticket_ID));
   const byToner = printersForToner(raw).filter(a => !direct.includes(a));
-  return direct.map(a => assetHit(a, "Assets")).concat(byToner.map(a => assetHit(a, `Printers using toner ${codeKey(raw)}…`)));
+  return ppl.slice(0, 4).concat(direct.map(a => assetHit(a, "Assets")), byToner.map(a => assetHit(a, `Printers using toner ${codeKey(raw)}…`)));
 }
 function stSuggest(q, raw) {
   if (stState === "edit") return [];
@@ -1574,6 +1580,7 @@ function applyType() {
 }
 $("asType").onchange = applyType;
 function resetAsset(keepSerial) {
+  if ($("asPick")) $("asPick").innerHTML = "";
   const s = $("asSerial").value;
   $("asForm").reset(); if (keepSerial) $("asSerial").value = s;
   $("asSerial").readOnly = false; $("asDetailPane").disabled = true; $("asDetailPane").classList.remove("hidden");
@@ -1589,6 +1596,10 @@ async function asLookup() {
   try { await load(); } catch (e) { msg("asMsg", "err", "Could not check: " + e.message); return; }
   resetAsset(true);
   const a = findAsset(s);
+  if (!a) {   // not a serial: an Employee ID or user name? show everything that person has
+    const k = U(s), mine = DB.assets.filter(x => (x.Employee_ID && U(x.Employee_ID) === k) || (s.length >= 3 && U(x.Assigned_User) === k));
+    if (mine.length) { showPerson(s, mine); return; }
+  }
   if (a) {
     asState = "existing";
     msg("asMsg", "warn", `This ${String(a.Asset_Type || "asset").toLowerCase()} is already registered (S#No ${a.SNo}).`, true);
@@ -1611,6 +1622,15 @@ async function asLookup() {
     asState = "new"; $("asDetailPane").disabled = false; $("asDetailTitle").textContent = "New asset details";
     msg("asMsg", "ok", "New asset — choose the type and fill in the details.");
   }
+}
+function showPerson(q, mine) {
+  const p = mine[0], who = p.Assigned_User || q, emp = p.Employee_ID || "";
+  const acc = DB.smoves.filter(m => m.Direction === "OUT" && ((emp && String(m.Received_By).includes(emp)) || (who && U(m.Received_By).startsWith(U(who)))));
+  msg("asMsg", "ok", `${who}${emp ? " · Emp ID " + emp : ""} has ${mine.length} asset${mine.length === 1 ? "" : "s"}${acc.length ? ` and received ${acc.reduce((t, m) => t + num(m.Qty), 0)} accessor${acc.length === 1 ? "y" : "ies"} from stock` : ""}. Click one to open it.`);
+  $("asPick").innerHTML = mine.map(a => `<button type="button" data-s="${esc(a.Serial_No)}"><span class="si">${ICON[a.Asset_Type] || "📦"}</span><span><b>${esc(a.Asset_Type || "Asset")} · ${esc(a.Serial_No)}</b><small>${esc([[a.Brand, a.Model].filter(Boolean).join(" "), [a.Floor, a.Clinic_Department, a.Room].filter(Boolean).join(" · "), a.Status, U(a.ITC_Handover) === "YES" ? "ITC ✔" : ""].filter(Boolean).join(" — "))}</small></span></button>`).join("")
+    + acc.map(m => `<div class="pacc"><span class="si">⌨️</span><span>${esc(m.Qty)} × ${esc(m.Item_Name || m.Item_Code)}<small>${esc(m.Move_Date)} · ${esc(m.Reference || "")}</small></span></div>`).join("");
+  $("asPick").querySelectorAll("button").forEach(b => b.onclick = () => { $("asSerial").value = b.dataset.s; asLookup(); });
+  $("asQ").value = emp || who; $("asQx").classList.remove("hidden"); renderAssets();   // inventory table shows only this person's items
 }
 $("asCheck").onclick = asLookup; enterKey("asSerial", asLookup); setupLookup("asSerial", asSuggest, asLookup);
 $("asEditBtn").onclick = () => {
