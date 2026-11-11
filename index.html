@@ -244,6 +244,22 @@
   .toner .tx small.no{color:var(--warn)}
   #appRoot label.toner.on{border-color:var(--brand);background:#eef0fa;box-shadow:0 0 0 1px var(--brand) inset}
   .toners.one{grid-template-columns:1fr}
+  .req{color:#c62828;font-weight:700}
+  .lookup{position:relative}
+  .lookup .row{align-items:stretch}
+  #appRoot .lookup .btn.cam,#appRoot .lookup .btn.att{flex:0 0 auto;width:auto;margin:0;padding:0 14px;min-height:44px;display:inline-flex;align-items:center;gap:6px;white-space:nowrap;cursor:pointer;font-size:15px}
+  .hidefile{position:absolute;width:1px;height:1px;opacity:0;pointer-events:none;left:0;top:0}
+  .sugg{position:relative;margin-top:6px;background:#fff;border:1px solid var(--line);border-radius:10px;box-shadow:0 10px 28px rgba(22,27,61,.16);z-index:40;max-height:340px;overflow:auto}
+  .sugg button{display:flex;gap:10px;align-items:center;width:100%;text-align:left;background:none;border:0;border-top:1px solid var(--line);padding:9px 12px;font:inherit;font-size:14px;cursor:pointer;color:var(--ink)}
+  .sugg button:first-child{border-top:0}
+  .sugg button:hover,.sugg button.act{background:var(--brand2)}
+  .sugg .si{font-size:18px;flex:0 0 24px;text-align:center}
+  .sugg small{display:block;color:var(--muted);font-size:12px}
+  .sugg .sh{padding:6px 12px;font-size:11px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--muted);background:#f7f8fc}
+  td.act{white-space:nowrap;text-align:right}
+  .ib{border:1px solid var(--line);background:#fff;border-radius:8px;padding:5px 9px;font:inherit;font-size:13px;cursor:pointer;color:var(--brand);margin-left:4px}
+  .ib:hover{background:var(--brand2)} .ib.del{color:#b3261e} .ib.del:hover{background:#fdecea}
+  @media(max-width:640px){#appRoot .lookup .btn span{display:none} #appRoot .lookup .btn.cam,#appRoot .lookup .btn.att{padding:0 12px;font-size:18px}}
   .people{display:flex;flex-direction:column;gap:10px;margin-top:8px}
   .person{border:1px solid var(--line);border-radius:10px;padding:10px 12px 12px;background:#f7f8fc;position:relative}
   .person .ptop{display:flex;align-items:center;gap:8px}
@@ -433,17 +449,22 @@
         <div><label>Entered by</label><input id="svBy" readonly></div>
         <div><label>Today date</label><input id="svDate" readonly></div>
       </div>
-      <label>Printer serial No</label>
-      <div class="row"><input id="svSerial" placeholder="Scan, type, or USB scanner"><button type="button" class="btn secondary cam" data-cam="svSerial">Camera</button></div>
+      <label>Printer serial No <span class="muted">— or search by model, toner No, department</span></label>
+      <div class="lookup">
+        <div class="row"><input id="svSerial" placeholder="Scan, type serial, model or toner No" autocomplete="off"><button type="button" class="btn secondary cam" data-cam="svSerial" title="Scan with camera">📷 <span>Camera</span></button><label class="btn secondary att" for="svSerialFile" title="Read a barcode from a photo">📎 <span>Attach</span></label><input type="file" id="svSerialFile" accept="image/*" class="hidefile"></div>
+        <div class="sugg hidden" id="svSerialSug"></div>
+      </div>
       <div id="svSerialReader" class="reader hidden"></div>
       <button type="button" class="btn secondary" id="svCheck">Check serial</button>
       <div id="svMsg"></div>
+      <fieldset id="svModelBox" disabled>
+        <label>Printer model <span class="req">*</span></label>
+        <select id="svTModel"></select>
+        <input id="svModel" class="hidden" placeholder="Type the model, e.g. HP LaserJet M507" style="margin-top:8px">
+      </fieldset>
       <fieldset id="svDetails" disabled>
-        <div class="two">
+        <div class="three">
           <div><label>Brand</label><select id="svBrand"></select></div>
-          <div><label>Printer model</label><input id="svModel" placeholder="e.g. HP Color LaserJet E877"></div>
-        </div>
-        <div class="two">
           <div><label>Floor</label><select id="svFloor" class="floors"></select></div>
           <div><label>Clinic / Department</label><input id="svDept" list="deptList" placeholder="Type to search…"></div>
         </div>
@@ -452,8 +473,6 @@
     <div>
       <h2>Toner change</h2>
       <fieldset id="svMaint" disabled>
-        <label>Printer model</label>
-        <select id="svTModel"></select>
         <div id="svTonerBox" class="hidden">
           <label>Toner replaced <span class="muted">— tick every cartridge you changed (each is taken from stock)</span></label>
           <div class="toners" id="svToners"></div>
@@ -463,8 +482,8 @@
           <select id="svItem"></select>
         </div>
         <div class="photos">
-          <div><label>Toner (Before) photo</label><input type="file" id="svBefore" accept="image/*" capture="environment"><img id="svBeforeImg" class="thumb" alt="Toner before"></div>
-          <div><label>Toner (After) photo</label><input type="file" id="svAfter" accept="image/*" capture="environment"><img id="svAfterImg" class="thumb" alt="Toner after"></div>
+          <div><label>Toner (Before) photo <span class="req">*</span></label><input type="file" id="svBefore" accept="image/*" capture="environment"><img id="svBeforeImg" class="thumb" alt="Toner before"></div>
+          <div><label>Toner (After) photo <span class="req">*</span></label><input type="file" id="svAfter" accept="image/*" capture="environment"><img id="svAfterImg" class="thumb" alt="Toner after"></div>
         </div>
         <div class="two">
           <div><label>Printout reading (page counter)</label><input type="number" id="svReading" inputmode="numeric" min="0" step="1" placeholder="e.g. 45210"></div>
@@ -486,8 +505,11 @@
    <div class="grid">
     <div>
       <h2>Register, update or move an asset</h2>
-      <label>Serial No</label>
-      <div class="row"><input id="asSerial" placeholder="Scan, type, or USB scanner"><button type="button" class="btn secondary cam" data-cam="asSerial">Camera</button></div>
+      <label>Serial No <span class="muted">— or search by tag, model, part No, user</span></label>
+      <div class="lookup">
+        <div class="row"><input id="asSerial" placeholder="Scan, type serial, tag, model or user" autocomplete="off"><button type="button" class="btn secondary cam" data-cam="asSerial" title="Scan with camera">📷 <span>Camera</span></button><label class="btn secondary att" for="asSerialFile" title="Read a barcode from a photo">📎 <span>Attach</span></label><input type="file" id="asSerialFile" accept="image/*" class="hidefile"></div>
+        <div class="sugg hidden" id="asSerialSug"></div>
+      </div>
       <div id="asSerialReader" class="reader hidden"></div>
       <button type="button" class="btn secondary" id="asCheck">Check serial</button>
       <div id="asMsg"></div>
@@ -505,6 +527,10 @@
     <div>
       <fieldset id="asDetailPane" disabled>
         <h2 id="asDetailTitle">Asset details</h2>
+        <div class="two">
+          <div><label>Ticket ID</label><input id="asTicket" placeholder="e.g. Helpdesk #4471"></div>
+          <div><label>Req. name (requested by)</label><input id="asReq" placeholder="e.g. Dr. Ahmed / HR"></div>
+        </div>
         <div class="two">
           <div><label>Asset type</label><select id="asType"></select></div>
           <div><label>Asset tag No (hospital tag)</label><input id="asTag" placeholder="e.g. KH-IT-10334"></div>
@@ -571,7 +597,7 @@
         <div class="handover hidden" id="mvHand">
           <h3>ITC handover <span class="muted" id="mvPrevNote"></span></h3>
           <label class="check"><input type="checkbox" id="mvItc"> ITC handover form signed</label>
-          <label>Handover form (PDF or photo)</label>
+          <label>Signed handover form (PDF or photo) <span class="req">*</span></label>
           <div class="filepick">
             <input type="file" id="mvHandFile" accept="application/pdf,image/*">
             <label for="mvHandFile" class="btn secondary">📎 Attach / Browse…</label>
@@ -595,7 +621,10 @@
           </div>
           <label>Fault description</label><input id="mvFault" placeholder="e.g. No display, backlight failure">
         </div>
-        <label>Reference / ticket No</label><input id="mvRef" placeholder="e.g. Helpdesk #4471">
+        <div class="two">
+          <div><label>Ticket ID</label><input id="mvRef" placeholder="e.g. Helpdesk #4471"></div>
+          <div><label>Req. name (requested by)</label><input id="mvReq" placeholder="e.g. Head nurse ICU"></div>
+        </div>
         <button type="button" class="btn" id="mvSave">Save move</button>
         <button type="button" class="btn secondary" id="mvCancel">Cancel</button>
       </div>
@@ -610,7 +639,7 @@
         <h3>User &amp; location</h3>
         <div class="two">
           <div><label>User name</label><input id="kiUser" placeholder="e.g. Dr. Ahmed Al-Mutairi"></div>
-          <div><label>Employee ID</label><input id="kiEmp" placeholder="e.g. 10452"></div>
+          <div><label>Employee ID <span class="muted">— scan the staff ID card</span></label><div class="lookup"><div class="row"><input id="kiEmp" placeholder="e.g. 10452"><button type="button" class="btn secondary cam" data-cam="kiEmp" title="Scan ID card barcode">📷</button><label class="btn secondary att" for="kiEmpFile" title="Read barcode from a photo">📎</label><input type="file" id="kiEmpFile" accept="image/*" class="hidefile"></div></div><div id="kiEmpReader" class="reader hidden"></div></div>
         </div>
         <div class="three">
           <div><label>Floor</label><select id="kiFloor" class="floors"></select></div>
@@ -620,7 +649,7 @@
         <div class="handover">
           <h3>ITC handover (one form for all items)</h3>
           <label class="check"><input type="checkbox" id="kiItc"> ITC handover form signed</label>
-          <label>Handover form (PDF or photo)</label>
+          <label>Signed handover form (PDF or photo) <span class="req">*</span></label>
           <div class="filepick">
             <input type="file" id="kiHandFile" accept="application/pdf,image/*">
             <label for="kiHandFile" class="btn secondary">📎 Attach / Browse…</label>
@@ -628,15 +657,23 @@
             <button type="button" class="clear hidden" id="kiHandClear">Remove</button>
           </div>
         </div>
-        <label>Reference / ticket No</label><input id="kiRef" placeholder="e.g. Helpdesk #4471 or new joiner request">
+        <div class="two">
+          <div><label>Ticket ID</label><input id="kiRef" placeholder="e.g. Helpdesk #4471"></div>
+          <div><label>Req. name (requested by)</label><input id="kiReq" placeholder="e.g. HR — new joiner"></div>
+        </div>
       </div>
       <div>
         <h3>Items with a serial number</h3>
-        <div class="row"><input id="kiSerial" placeholder="Scan or type serial, then Enter"><button type="button" class="btn secondary cam" data-cam="kiSerial">Camera</button></div>
+        <div class="lookup"><div class="row"><input id="kiSerial" placeholder="Scan or type serial, then Enter"><button type="button" class="btn secondary cam" data-cam="kiSerial" title="Scan with camera">📷 <span>Camera</span></button><label class="btn secondary att" for="kiSerialFile" title="Read barcodes from photos">📎 <span>Attach</span></label><input type="file" id="kiSerialFile" accept="image/*" multiple class="hidefile"></div></div>
         <div id="kiSerialReader" class="reader hidden"></div>
         <ul class="kitlist" id="kiItems"></ul>
         <h3 style="margin-top:18px">Accessories from stock (no serial)</h3>
-        <div class="row"><select id="kiStock"></select><input id="kiStockQty" type="number" min="1" value="1" class="qty" style="flex:0 0 80px"><button type="button" class="btn secondary" id="kiStockAdd" style="flex:0 0 80px;margin:0">Add</button></div>
+        <div class="lookup">
+          <div class="row"><input id="kiAcc" placeholder="Scan or type part No / name (keyboard, mouse…), then Enter" autocomplete="off"><button type="button" class="btn secondary cam" data-cam="kiAcc" title="Scan with camera">📷 <span>Camera</span></button><label class="btn secondary att" for="kiAccFile" title="Read barcodes from photos">📎 <span>Attach</span></label><input type="file" id="kiAccFile" accept="image/*" multiple class="hidefile"></div>
+          <div class="sugg hidden" id="kiAccSug"></div>
+        </div>
+        <div id="kiAccReader" class="reader hidden"></div>
+        <div class="row" style="margin-top:8px"><select id="kiStock"></select><input id="kiStockQty" type="number" min="1" value="1" class="qty" style="flex:0 0 80px"><button type="button" class="btn secondary" id="kiStockAdd" style="flex:0 0 80px;margin:0">Add</button></div>
         <ul class="kitlist" id="kiLines"></ul>
         <p class="kitsum" id="kiSum"></p>
         <div id="kiMsg"></div>
@@ -672,7 +709,8 @@
       </div>
       <div>
         <h3>Serial numbers</h3>
-        <div class="row"><span class="muted" style="font-size:13px;flex:1">Scan one after another with the USB scanner, or type/paste them separated by commas or new lines.</span><button type="button" class="btn secondary cam" data-cam="bkSerials">Camera</button></div>
+        <p class="muted" style="font-size:13px;margin:4px 0 8px">Scan one after another with the USB scanner or 📷 Camera, 📎 attach photos of the barcode labels (several at once), or type/paste them separated by commas or new lines.</p>
+        <div class="lookup"><div class="row" style="justify-content:flex-end"><button type="button" class="btn secondary cam" data-cam="bkSerials" title="Scan with camera">📷 <span>Camera</span></button><label class="btn secondary att" for="bkSerialsFile" title="Read barcodes from photos">📎 <span>Attach photos</span></label><input type="file" id="bkSerialsFile" accept="image/*" multiple class="hidefile"></div></div>
         <div id="bkSerialsReader" class="reader hidden"></div>
         <textarea id="bkSerials" placeholder="5CG3349KL1&#10;5CG3349KL2&#10;5CG3349KL3, 5CG3349KL4 …"></textarea>
         <div class="bkcount"><b id="bkN">0</b><span id="bkStatusText">serials entered</span></div>
@@ -697,8 +735,11 @@
    <div class="grid">
     <div>
       <h2>Receive or issue stock</h2>
-      <label>Item code (part No / barcode)</label>
-      <div class="row"><input id="stCode" placeholder="e.g. W1470A"><button type="button" class="btn secondary cam" data-cam="stCode">Camera</button></div>
+      <label>Item code <span class="muted">— part No, barcode, item name or printer model</span></label>
+      <div class="lookup">
+        <div class="row"><input id="stCode" placeholder="Scan or type part No, name or printer model" autocomplete="off"><button type="button" class="btn secondary cam" data-cam="stCode" title="Scan with camera">📷 <span>Camera</span></button><label class="btn secondary att" for="stCodeFile" title="Read a barcode from a photo">📎 <span>Attach</span></label><input type="file" id="stCodeFile" accept="image/*" class="hidefile"></div>
+        <div class="sugg hidden" id="stCodeSug"></div>
+      </div>
       <div id="stCodeReader" class="reader hidden"></div>
       <button type="button" class="btn secondary" id="stCheck">Check item</button>
       <div id="stMsg"></div>
@@ -731,13 +772,15 @@
           <div><label>Type</label><select id="stType"><option>Toner</option><option>Drum</option><option>Ribbon</option><option>Label roll</option><option>Fuser</option><option>Spare part</option><option>Cable / adapter</option><option>Battery</option><option>Mouse / keyboard</option><option>Headset</option><option>Accessory</option><option>Other</option></select></div>
           <div><label>Brand</label><input id="stBrand" placeholder="e.g. HP"></div>
         </div>
+        <div id="stQtyBox" class="hidden"><label>Quantity in stock (correct a wrong count)</label><input id="stQtyNow" type="number" min="0" inputmode="numeric"></div>
         <label>For asset types / models</label><input id="stModels" placeholder="e.g. HP Color LaserJet E877, E45028">
         <div class="two">
           <div><label>Reorder level</label><input id="stReorder" type="number" value="5" min="0"></div>
-          <div><label>Store location</label><input id="stLoc" placeholder="e.g. IT store, shelf B2"></div>
+          <div><label>Store location <span class="req">*</span></label><input id="stLoc" placeholder="e.g. IT store, shelf B2"></div>
         </div>
       </fieldset>
       <button type="submit" class="btn" id="stSave" disabled>Save movement</button>
+      <button type="button" class="btn secondary hidden" id="stEditCancel">Cancel edit</button>
     </div>
    </div>
   </form>
@@ -980,6 +1023,8 @@ function sigCount(action, d) {
     const map = { type: "Asset_Type", dept: "Clinic_Department", floor: "Floor", room: "Room", status: "Status", user: "Assigned_User", notes: "Notes" };
     return Object.keys(map).every(k => d[k] === undefined || S(a[map[k]]) === S(d[k])) ? 1 : 0;
   }
+  if (action === "stockEdit") return DB.stock.some(i => S(i.Item_Code) === S(d.newCode || d.code) && S(i.Item_Name) === S(d.name) && S(i.Store_Location) === S(d.location) && (d.qty === null || Number(i.Qty_On_Hand) === Number(d.qty))) ? 1 : 0;
+  if (action === "stockDelete") return DB.stock.some(i => codeKey(i.Item_Code) === codeKey(d.code)) ? 0 : 1;
   if (action === "issueKit") return DB.amoves.filter(m => real(m.Move_ID) && S(m.Reference) === S(d.reference)).length + DB.smoves.filter(m => real(m.Move_ID) && S(m.Reference) === S(d.reference)).length
     + (d.items || []).filter(i => i.isNew && DB.assets.some(x => real(x.SNo) && S(x.Serial_No) === S(i.serial))).length;
   if (action === "assetBulk") return (d.serials || []).filter(sr => DB.assets.some(x => real(x.SNo) && S(x.Serial_No) === S(sr))).length;
@@ -1004,7 +1049,7 @@ function applyLocal(action, d, replay) {
   const asset = s => DB.assets.find(a => U(a.Serial_No) === U(s));
   const item = c => stockOf(c);
   if (action === "asset") {
-    const map = { type: "Asset_Type", brand: "Brand", model: "Model", tag: "Asset_Tag", dept: "Clinic_Department", floor: "Floor", room: "Room", status: "Status", user: "Assigned_User", emp: "Employee_ID", prev: "Previous_User", itc: "ITC_Handover", hostname: "Hostname", ip: "IP_Address", mac: "MAC_Address", ext: "Extension", connected: "Connected_To", port: "Switch_Port", channel: "NVR_Channel", warranty: "Warranty_End", notes: "Notes" };
+    const map = { type: "Asset_Type", brand: "Brand", model: "Model", tag: "Asset_Tag", dept: "Clinic_Department", floor: "Floor", room: "Room", status: "Status", user: "Assigned_User", emp: "Employee_ID", prev: "Previous_User", itc: "ITC_Handover", ticket: "Ticket_ID", req: "Requested_By", hostname: "Hostname", ip: "IP_Address", mac: "MAC_Address", ext: "Extension", connected: "Connected_To", port: "Switch_Port", channel: "NVR_Channel", warranty: "Warranty_End", notes: "Notes" };
     let a = asset(d.serial);
     if (!a) { a = { SNo: "…", Serial_No: d.serial, Registered_On: today, Registered_By: me.name }; DB.assets.push(a); }
     Object.keys(map).forEach(k => { if (d[k] !== undefined) a[map[k]] = d[k]; });
@@ -1032,6 +1077,12 @@ function applyLocal(action, d, replay) {
     DB.amoves.unshift({ Move_ID: "…", Move_Date: today, Move_Time: time, Serial_No: d.serial, Asset_Type: a.Asset_Type, From_Location: from, To_Floor: d.toFloor, To_Dept: toDept, To_Room: d.toRoom, New_User: d.newUser, Status_After: d.status, Reason: d.reason, Vendor: d.vendor, Vendor_Contact: d.vendorContact, Vendor_Phone: d.vendorPhone, Vendor_Ticket: d.vendorTicket, Expected_Back: d.expectedBack, Fault: d.fault, Reference: d.reference, Entered_By: me.name });
     if (d.toFloor) a.Floor = d.toFloor; if (toDept) a.Clinic_Department = toDept; a.Room = d.toRoom; a.Status = d.status; if (d.newUser) { if (U(d.newUser) !== U(a.Assigned_User)) { a.Previous_User = a.Assigned_User || ""; a.Handover_Form = ""; } a.Assigned_User = d.newUser; a.Employee_ID = d.newUserEmp || ""; a.ITC_Handover = d.itc || "No"; }
   }
+  if (action === "stockEdit") {
+    const i = item(d.code);
+    if (i) Object.assign(i, { Item_Code: d.newCode || d.code, Item_Name: d.name, Item_Type: d.type, Brand: d.brand, Compatible_Models: d.models, Reorder_Level: d.reorder, Store_Location: d.location },
+      d.qty === null || d.qty === undefined ? {} : { Qty_On_Hand: d.qty });
+  }
+  if (action === "stockDelete") DB.stock = DB.stock.filter(i => codeKey(i.Item_Code) !== codeKey(d.code));
   if (action === "issueKit") {
     (d.items || []).forEach(it => {
       if (it.isNew) applyLocal("asset", { serial: it.serial, type: it.type, brand: it.brand, model: it.model, floor: d.floor, dept: d.dept, room: d.room, status: "In use", user: d.user, emp: d.emp, itc: d.itc }, true);
@@ -1092,6 +1143,7 @@ function bindDoc(input, nameEl, clearBtn) {
     const isPdf = /pdf$/i.test(f.type) || /\.pdf$/i.test(f.name);
     docs[input] = { ext: isPdf ? "pdf" : "jpg", base64: isPdf ? await readB64(f) : await toJpeg(f) };
     $(nameEl).textContent = `${f.name} · ${Math.max(1, Math.round(f.size / 1024))} KB`; $(nameEl).classList.add("on"); $(clearBtn).classList.remove("hidden");
+    const tick = { asHandFile: "asItc", mvHandFile: "mvItc", kiHandFile: "kiItc" }[input]; if (tick) $(tick).checked = true;   // a signed form is attached
   };
   $(clearBtn).onclick = clear;
   return clear;
@@ -1185,6 +1237,10 @@ document.querySelectorAll("[data-cam]").forEach(btn => btn.onclick = async () =>
     let last = "", lastAt = 0;
     await scanner.start({ facingMode: "environment" }, { fps: 10, qrbox: { width: 260, height: 140 } }, async t => {
       t = t.trim();
+      if (target === "kiAcc") {
+        if (t === last && Date.now() - lastAt < 2500) return; last = t; lastAt = Date.now();
+        kiAddAcc(t); if (navigator.vibrate) navigator.vibrate(60); return;
+      }
       if (target === "kiSerial") {
         if (t === last && Date.now() - lastAt < 2500) return; last = t; lastAt = Date.now();
         kiAddSerial(t); if (navigator.vibrate) navigator.vibrate(60); return;
@@ -1197,7 +1253,7 @@ document.querySelectorAll("[data-cam]").forEach(btn => btn.onclick = async () =>
         if (navigator.vibrate) navigator.vibrate(60);
         return;
       }
-      await stopScanner(); $(target).value = t; ({ svSerial: svLookup, asSerial: asLookup, stCode: stLookup })[target]();
+      await stopScanner(); $(target).value = t; const next = ({ svSerial: svLookup, asSerial: asLookup, stCode: stLookup })[target]; if (next) next();
     });
   } catch (e) { alert("Camera could not start: " + e); await stopScanner(); }
 });
@@ -1206,6 +1262,84 @@ async function stopScanner() {
   try { await scanner.stop(); } catch (e) {} try { scanner.clear(); } catch (e) {}
   scanner = null; if (scanBox) $(scanBox).classList.add("hidden"); if (scanBtn) scanBtn.textContent = "Camera";
 }
+/* ---------------- search-as-you-type + read barcode from a photo ---------------- */
+function setupLookup(id, provider, run) {
+  const box = $(id), sug = $(id + "Sug"); let list = [], act = -1;
+  const hide = () => { sug.classList.add("hidden"); act = -1; };
+  const pick = v => { box.value = v; hide(); run(); };
+  const run0 = run; run = () => { hide(); run0(); };
+  const draw = () => {
+    const q = box.value.trim(); if (q.length < 2 || box.readOnly) { hide(); return; }
+    list = provider(q.toLowerCase(), q).slice(0, 10); act = -1;
+    if (!list.length) { hide(); return; }
+    let lastHead = "";
+    sug.innerHTML = list.map((x, n) => { const head = x.head && x.head !== lastHead ? `<div class="sh">${esc(lastHead = x.head)}</div>` : "";
+      return head + `<button type="button" data-n="${n}"><span class="si">${x.icon || "📦"}</span><span>${esc(x.title)}<small>${esc(x.sub || "")}</small></span></button>`; }).join("");
+    sug.classList.remove("hidden");
+    sug.querySelectorAll("button").forEach(b => b.onmousedown = e => { e.preventDefault(); pick(list[+b.dataset.n].value); });
+  };
+  box.addEventListener("input", draw); box.addEventListener("focus", draw);
+  document.addEventListener("click", e => { if (!e.target.closest || e.target.closest(".lookup") !== box.closest(".lookup")) hide(); });
+  box.addEventListener("keydown", e => {
+    if (sug.classList.contains("hidden")) return;
+    const btns = sug.querySelectorAll("button");
+    if (e.key === "ArrowDown" || e.key === "ArrowUp") { e.preventDefault(); act = (act + (e.key === "ArrowDown" ? 1 : -1) + btns.length) % btns.length; btns.forEach((b, n) => b.classList.toggle("act", n === act)); }
+    else if (e.key === "Enter" && act >= 0) { e.preventDefault(); e.stopImmediatePropagation(); pick(list[act].value); }
+    else if (e.key === "Enter") hide();
+    else if (e.key === "Escape") hide();
+  }, true);
+  // 📎 Attach: read the barcode / QR code from a photo
+  $(id + "File").onchange = async e => {
+    const f = e.target.files[0]; e.target.value = ""; if (!f) return;
+    if (!window.Html5Qrcode) { alert("The barcode reader did not load. Check the internet connection."); return; }
+    const reader = $(id + "Reader") || (() => { const d = document.createElement("div"); d.id = id + "Reader"; d.className = "reader hidden"; box.closest(".lookup").after(d); return d; })();
+    try { const t = await new Html5Qrcode(reader.id).scanFile(f, false); box.readOnly = false; pick(String(t).trim()); }
+    catch (err) { alert("No barcode found in that photo. Take a closer, sharper photo of the barcode, or type the number."); }
+  };
+}
+/* read barcodes from one or more photos, give each code to add() */
+function bindMultiAttach(id, add, done) {
+  $(id + "File").onchange = async e => {
+    const files = [...e.target.files]; e.target.value = ""; if (!files.length) return;
+    if (!window.Html5Qrcode) { alert("The barcode reader did not load. Check the internet connection."); return; }
+    const reader = $(id + "Reader"); let ok = 0; const bad = [];
+    for (const f of files) {
+      try { add(String(await new Html5Qrcode(reader.id).scanFile(f, false)).trim()); ok++; } catch (err) { bad.push(f.name); }
+    }
+    done && done();
+    if (bad.length) alert(`Read ${ok} barcode${ok === 1 ? "" : "s"}. No barcode found in: ${bad.join(", ")}. Take a closer, sharper photo or type those serials.`);
+  };
+}
+const hayHit = (q, ...v) => v.some(x => String(x ?? "").toLowerCase().includes(q));
+function printersForToner(q) {   // printers that use a toner whose number matches what was typed
+  const codes = new Set(PRINTER_TONERS.flatMap(t => t.toners.map(([, c]) => c)).filter(c => codeKey(c).toLowerCase().includes(codeKey(q).toLowerCase())));
+  if (!codes.size) return [];
+  return DB.assets.filter(a => { const sp = (a.Asset_Type || "Printer") === "Printer" && tonerSpec(a.Model); return sp && sp.toners.some(([, c]) => codes.has(c)); });
+}
+const assetHit = (a, head) => ({ head, icon: ICON[a.Asset_Type] || "📦", title: `${a.Serial_No}${a.Asset_Tag ? " · " + a.Asset_Tag : ""}`,
+  sub: [[a.Brand, a.Model].filter(Boolean).join(" "), [a.Floor, a.Clinic_Department].filter(Boolean).join(" · "), a.Assigned_User].filter(Boolean).join(" — "), value: a.Serial_No });
+function svSuggest(q, raw) {
+  const pr = DB.assets.filter(a => (a.Asset_Type || "Printer") === "Printer");
+  const direct = pr.filter(a => hayHit(q, a.Serial_No, a.Model, a.Brand, a.Clinic_Department, a.Room, a.Asset_Tag, a.Floor));
+  const byToner = printersForToner(raw).filter(a => !direct.includes(a));
+  return direct.map(a => assetHit(a, "Printers")).concat(byToner.map(a => assetHit(a, `Printers using toner ${codeKey(raw)}…`)));
+}
+function asSuggest(q, raw) {
+  const direct = DB.assets.filter(a => hayHit(q, a.Serial_No, a.Asset_Tag, a.Model, a.Brand, a.Asset_Type, a.Assigned_User, a.Employee_ID, a.Hostname, a.IP_Address, a.MAC_Address, a.Clinic_Department, a.Ticket_ID));
+  const byToner = printersForToner(raw).filter(a => !direct.includes(a));
+  return direct.map(a => assetHit(a, "Assets")).concat(byToner.map(a => assetHit(a, `Printers using toner ${codeKey(raw)}…`)));
+}
+function stSuggest(q, raw) {
+  if (stState === "edit") return [];
+  const items = DB.stock.filter(i => hayHit(q, i.Item_Code, codeKey(i.Item_Code), i.Item_Name, i.Brand, i.Item_Type, fitsFor(i).join(" ")))
+    .map(i => ({ head: "In stock list", icon: "📦", title: `${i.Item_Code} — ${i.Item_Name}`, sub: `${num(i.Qty_On_Hand)} in stock${fitsFor(i).length ? " · for " + fitsFor(i).join(", ") : ""}`, value: i.Item_Code }));
+  const known = new Set(DB.stock.map(i => codeKey(i.Item_Code)));
+  const fresh = PRINTER_TONERS.flatMap(t => t.toners.map(([color, c]) => ({ color, c, model: t.model })))
+    .filter(x => !known.has(codeKey(x.c)) && hayHit(q, x.c, x.model, x.color)).filter((x, n, a) => a.findIndex(y => y.c === x.c) === n)
+    .map(x => ({ head: "From the toner list — not in stock yet", icon: "🆕", title: `${x.c} — ${x.color} toner`, sub: "for " + tonerInfo(x.c).models.join(", "), value: x.c }));
+  return items.concat(fresh);
+}
+
 function enterKey(id, fn) { $(id).addEventListener("keydown", e => { if (e.key === "Enter") { e.preventDefault(); if ($(id).value.trim()) fn(); } }); }
 
 /* ================= TONER SERVICE ================= */
@@ -1221,11 +1355,12 @@ function fillTModels(current) {
   if (sel && !spec && !others.some(o => U(o) === U(sel))) others.unshift(sel);
   $("svTModel").innerHTML = `<option value="">Select printer model…</option>` +
     `<optgroup label="Models with toner list">${PRINTER_TONERS.map(t => `<option${t.model === sel ? " selected" : ""}>${esc(t.model)}</option>`).join("")}</optgroup>` +
-    (others.length ? `<optgroup label="Other printer models">${others.map(o => `<option${U(o) === U(sel) ? " selected" : ""}>${esc(o)}</option>`).join("")}</optgroup>` : "");
+    (others.length ? `<optgroup label="Other printer models">${others.map(o => `<option${U(o) === U(sel) ? " selected" : ""}>${esc(o)}</option>`).join("")}</optgroup>` : "") +
+    `<option value="__other">Other model (type it)…</option>`;
   showToners();
 }
 function showToners() {
-  const spec = tonerSpec($("svTModel").value);
+  const spec = $("svTModel").value === "__other" ? null : tonerSpec($("svTModel").value);
   $("svTonerBox").classList.toggle("hidden", !spec); $("svItemBox").classList.toggle("hidden", !!spec);
   if (!spec) { $("svToners").innerHTML = ""; fillItems(); return; }
   const keep = new Set([...document.querySelectorAll("#svToners input:checked")].map(x => x.value));
@@ -1239,14 +1374,14 @@ function showToners() {
 }
 function resetService() {
   $("svForm").reset(); $("svBy").value = me.name; $("svDate").value = ddmmyyyy(new Date());
-  $("svBrand").value = "HP"; $("svModel").value = CONFIG.DEFAULT_MODEL;
-  $("svDetails").disabled = true; $("svMaint").disabled = true; $("svSerial").readOnly = false;
+  $("svBrand").value = "HP"; $("svModel").value = ""; $("svModel").classList.add("hidden");
+  $("svDetails").disabled = true; $("svModelBox").disabled = true; $("svMaint").disabled = true; $("svSerial").readOnly = false;
   clearPhoto("svBefore", "svBeforeImg"); clearPhoto("svAfter", "svAfterImg");
   svState = null; msg("svMsg"); fillItems(); fillTModels("");
   $("svHistory").innerHTML = `<li class="muted">Scan a printer to see its history</li>`;
 }
 function fillItems() {
-  const m = U($("svModel").value);
+  const m = U(svModelNow());
   const fits = i => m && fitsFor(i).some(f => U(f).includes(m) || m.includes(U(f)) || (tonerSpec(m) && tonerSpec(m).model === f));
   const items = [...DB.stock].sort((a, b) => (fits(b) ? 1 : 0) - (fits(a) ? 1 : 0) || String(a.Item_Name).localeCompare(String(b.Item_Name)));
   const keep = $("svItem").value;
@@ -1254,8 +1389,13 @@ function fillItems() {
   if (keep && items.some(i => i.Item_Code === keep)) $("svItem").value = keep;
   else if (svState && items[0] && fits(items[0])) $("svItem").value = items[0].Item_Code;
 }
-$("svModel").addEventListener("input", () => { fillItems(); if (svState === "new") fillTModels($("svModel").value); });
-$("svTModel").onchange = () => { showToners(); if (svState === "new" && $("svTModel").value) $("svModel").value = $("svTModel").value; };
+const svModelNow = () => $("svTModel").value === "__other" ? $("svModel").value.trim() : $("svTModel").value;
+$("svModel").addEventListener("input", fillItems);
+$("svTModel").onchange = () => {
+  const other = $("svTModel").value === "__other";
+  $("svModel").classList.toggle("hidden", !other); if (other) $("svModel").focus();
+  showToners();
+};
 async function svLookup() {
   const s = $("svSerial").value.trim(); if (!s) { msg("svMsg", "warn", "Scan or type a serial number first."); return; }
   msg("svMsg", "warn", "Checking serial…");
@@ -1265,31 +1405,33 @@ async function svLookup() {
   $("svSerial").readOnly = true; $("svMaint").disabled = false;
   if (p) {
     svState = "existing";
-    $("svBrand").value = PRINTER_BRANDS.includes(U(p.Brand)) ? U(p.Brand) : "Other"; $("svModel").value = p.Model || "";
+    $("svBrand").value = PRINTER_BRANDS.includes(U(p.Brand)) ? U(p.Brand) : "Other"; $("svModel").value = "";
     $("svFloor").value = p.Floor || ""; $("svDept").value = p.Clinic_Department || ""; $("svDetails").disabled = true;
     msg("svMsg", "warn", `This printer has already been registered. (S#No ${p.SNo})`, true);
   } else {
-    svState = "new"; $("svDetails").disabled = false; $("svModel").value = CONFIG.DEFAULT_MODEL; $("svFloor").value = ""; $("svDept").value = "";
+    svState = "new"; $("svDetails").disabled = false; $("svModel").value = ""; $("svFloor").value = ""; $("svDept").value = "";
     msg("svMsg", "ok", "New printer — enter brand, model, floor and department.");
   }
-  fillItems(); fillTModels(p ? p.Model : $("svModel").value);
+  $("svModelBox").disabled = false; $("svModel").classList.add("hidden");
+  fillTModels(p ? p.Model : ""); fillItems();
   const h = DB.logs.filter(l => U(l.Serial_No) === U(s)).sort((a, b) => (parseDMY(b.Log_Date, b.Log_Time) || 0) - (parseDMY(a.Log_Date, a.Log_Time) || 0)).slice(0, 6);
   $("svHistory").innerHTML = h.length ? h.map(l => `<li>${esc(l.Log_Date)} — ${esc(l.Toner_Item || "not from stock")}, reading ${esc(l.Printout_Reading)}${l.Spareparts_Replacement && l.Spareparts_Replacement !== "None" ? ", parts: " + esc(l.Spareparts_Replacement) : ""} · ${esc(l.Entered_By)}</li>`).join("") : `<li class="muted">No toner changes yet</li>`;
 }
-$("svCheck").onclick = svLookup; enterKey("svSerial", svLookup);
+$("svCheck").onclick = svLookup; enterKey("svSerial", svLookup); setupLookup("svSerial", svSuggest, svLookup);
 $("svForm").onsubmit = async e => {
   e.preventDefault();
   if (!svState) { msg("svSaveMsg", "warn", "Check the serial number first."); return; }
   if (svState === "new" && (!$("svFloor").value || !$("svDept").value.trim())) { msg("svSaveMsg", "warn", "Enter the floor and department for the new printer."); return; }
-  if (!photos.svBefore || !photos.svAfter) { msg("svSaveMsg", "warn", "Both toner photos are required."); return; }
+  if (!photos.svBefore || !photos.svAfter) { msg("svSaveMsg", "warn", `Toner ${!photos.svBefore && !photos.svAfter ? "Before and After photos are" : (!photos.svBefore ? "Before photo is" : "After photo is")} required.`); return; }
   if (!$("svTModel").value) { msg("svSaveMsg", "warn", "Select the printer model."); return; }
-  const spec = tonerSpec($("svTModel").value);
+  const spec = $("svTModel").value === "__other" ? null : tonerSpec($("svTModel").value);
   const items = spec ? [...document.querySelectorAll("#svToners input:checked")].map(x => x.value) : ($("svItem").value ? [$("svItem").value] : []);
   if (spec && !items.length) { msg("svSaveMsg", "warn", "Tick the toner(s) you replaced."); return; }
   const low = items.map(c => stockOf(c)).filter(i => i && num(i.Qty_On_Hand) < 1);
   if (low.length && !confirm(`${low.map(i => i.Item_Code).join(", ")} show 0 in stock. Save anyway?`)) return;
   const serial = $("svSerial").value.trim(), base = `${safeName(serial)}_${stamp()}`;
-  const model = svState === "new" ? ($("svModel").value.trim() || $("svTModel").value) : $("svTModel").value;
+  const model = svModelNow();
+  if (!model) { msg("svSaveMsg", "warn", "Type the printer model."); return; }
   const d = { serial, brand: $("svBrand").value, model, floor: $("svFloor").value, dept: $("svDept").value.trim(),
               items, item: items.join(", "), reading: $("svReading").value || "0", parts: $("svParts").value.trim() || "None" };
   $("svSave").disabled = true; msg("svSaveMsg", "warn", "Sending…");
@@ -1304,8 +1446,8 @@ $("svForm").onsubmit = async e => {
 
 /* ================= ASSETS ================= */
 let asState = null, asFilter = "All", asOrig = null;
-const AS_FIELDS = { hostname: "asHostname", user: "asUser", emp: "asEmp", prev: "asPrev", ip: "asIp", mac: "asMac", ext: "asExt", connected: "asConnected", port: "asPort", channel: "asChannel" };
-const AS_COLS = { hostname: "Hostname", user: "Assigned_User", emp: "Employee_ID", prev: "Previous_User", ip: "IP_Address", mac: "MAC_Address", ext: "Extension", connected: "Connected_To", port: "Switch_Port", channel: "NVR_Channel" };
+const AS_FIELDS = { ticket: "asTicket", req: "asReq", hostname: "asHostname", user: "asUser", emp: "asEmp", prev: "asPrev", ip: "asIp", mac: "asMac", ext: "asExt", connected: "asConnected", port: "asPort", channel: "asChannel" };
+const AS_COLS = { ticket: "Ticket_ID", req: "Requested_By", hostname: "Hostname", user: "Assigned_User", emp: "Employee_ID", prev: "Previous_User", ip: "IP_Address", mac: "MAC_Address", ext: "Extension", connected: "Connected_To", port: "Switch_Port", channel: "NVR_Channel" };
 function applyType() {
   const t = $("asType").value, f = FIELDS[t] || [];
   document.querySelectorAll("#asExtra [data-f]").forEach(x => x.classList.toggle("hidden", !f.includes(x.dataset.f)));
@@ -1337,7 +1479,8 @@ async function asLookup() {
     const rows = [["Type", a.Asset_Type], ["Tag", a.Asset_Tag || "—"], ["Brand / model", `${a.Brand} ${a.Model}`], ["Location", [a.Floor, a.Clinic_Department, a.Room].filter(Boolean).join(" · ")], ["Status", a.Status],
       a.Assigned_User ? ["User", a.Assigned_User + (a.Employee_ID ? ` (Emp ID ${a.Employee_ID})` : "")] : null, a.Previous_User ? ["Previous user", a.Previous_User] : null,
       a.Assigned_User || a.ITC_Handover ? ["ITC handover", U(a.ITC_Handover) === "YES" ? "✔ Signed" : "Not yet"] : null, a.Hostname ? ["Hostname", a.Hostname] : null, a.IP_Address ? ["IP", a.IP_Address] : null, a.Extension ? ["Extension", a.Extension] : null,
-      a.Warranty_End ? ["Warranty ends", isoToDMY(a.Warranty_End)] : null].filter(Boolean);
+      a.Warranty_End ? ["Warranty ends", isoToDMY(a.Warranty_End)] : null,
+      a.Ticket_ID ? ["Ticket ID", a.Ticket_ID] : null, a.Requested_By ? ["Req. name", a.Requested_By] : null].filter(Boolean);
     $("asDetails").innerHTML = rows.map(([k, v]) => `<dt>${k}</dt><dd>${esc(v)}</dd>`).join("") + (isUrl(a.Photo) ? `<dt>Photo</dt><dd><a href="${esc(a.Photo)}" target="_blank" rel="noopener">View</a></dd>` : "")
       + (isUrl(a.Handover_Form) ? `<dt>Handover form</dt><dd><a href="${esc(a.Handover_Form)}" target="_blank" rel="noopener">Open</a></dd>` : "");
     const h = DB.amoves.filter(m => U(m.Serial_No) === U(a.Serial_No)).sort((x, y) => (parseDMY(x.Move_Date, x.Move_Time) || 0) - (parseDMY(y.Move_Date, y.Move_Time) || 0));
@@ -1351,7 +1494,7 @@ async function asLookup() {
     msg("asMsg", "ok", "New asset — choose the type and fill in the details.");
   }
 }
-$("asCheck").onclick = asLookup; enterKey("asSerial", asLookup);
+$("asCheck").onclick = asLookup; enterKey("asSerial", asLookup); setupLookup("asSerial", asSuggest, asLookup);
 $("asEditBtn").onclick = () => {
   const a = findAsset($("asSerial").value); if (!a) return;
   asState = "update"; $("asMovePane").classList.add("hidden"); $("asDetailPane").classList.remove("hidden"); $("asDetailPane").disabled = false;
@@ -1383,7 +1526,7 @@ $("asForm").onsubmit = async e => {
   const t = $("asType").value, f = FIELDS[t] || [];
   const d = { serial, type: t, tag: $("asTag").value.trim(), brand: $("asBrand").value.trim(), model: $("asModel").value.trim(), floor: $("asFloor").value,
               dept: $("asDept").value.trim(), room: $("asRoom").value.trim(), status: $("asStatus").value, warranty: $("asWarranty").value, notes: $("asNotes").value.trim() };
-  const uf = k => (k === "emp" || k === "prev") ? f.includes("user") : f.includes(k);
+  const uf = k => (k === "emp" || k === "prev") ? f.includes("user") : (k === "ticket" || k === "req") ? true : f.includes(k);
   Object.keys(AS_FIELDS).forEach(k => { if (uf(k) || asState === "update") d[k] = $(AS_FIELDS[k]).value.trim(); });
   if (f.includes("user") || asState === "update") d.itc = $("asItc").checked ? "Yes" : "No";
   const ph = (photos.asPhoto ? [{ slot: "main", name: `${safeName(serial)}_${stamp()}_asset.jpg`, base64: photos.asPhoto }] : []).concat(f.includes("user") ? docItem("asHandFile", serial) : []);
@@ -1449,7 +1592,29 @@ function kiSum() {
 }
 function kiReset() { $("kiForm").reset(); kiItems = []; kiLines = []; clearKiDoc(); msg("kiMsg"); kiFillStock(); kiRender(); }
 enterKey("kiSerial", () => kiAddSerial($("kiSerial").value));
+bindMultiAttach("kiSerial", t => kiAddSerial(t));
 $("kiUser").oninput = kiRender;
+/* accessories by barcode / part No / name: each scan adds 1 */
+function kiAddAcc(raw) {
+  const q = String(raw || "").trim(); if (!q) return;
+  let i = stockOf(q);
+  if (!i) { const ql = q.toLowerCase(), byName = DB.stock.filter(x => hayHit(ql, x.Item_Code, x.Item_Name)), m = byName.length ? byName : DB.stock.filter(x => hayHit(ql, x.Brand, x.Item_Type)); if (m.length === 1) i = m[0]; }
+  if (!i) { msg("kiMsg", "warn", `"${q}" is not in the stock list. Add it in the Stock tab first (Receive IN), or pick from the list.`); return; }
+  const qty = Math.max(1, parseInt($("kiStockQty").value, 10) || 1);
+  const l = kiLines.find(x => x.code === i.Item_Code); if (l) l.qty += qty; else kiLines.push({ code: i.Item_Code, qty });
+  $("kiAcc").value = ""; $("kiStockQty").value = 1; msg("kiMsg"); kiRender();
+}
+setupLookup("kiAcc", (q) => DB.stock.filter(i => hayHit(q, i.Item_Code, codeKey(i.Item_Code), i.Item_Name, i.Brand, i.Item_Type))
+  .sort((a, b) => (hayHit(q, b.Item_Name, b.Item_Code) ? 2 : 0) + (ACC.test(b.Item_Type) ? 1 : 0) - (hayHit(q, a.Item_Name, a.Item_Code) ? 2 : 0) - (ACC.test(a.Item_Type) ? 1 : 0))
+  .map(i => ({ icon: "⌨️", title: `${i.Item_Name || i.Item_Code}`, sub: `${i.Item_Code} · ${num(i.Qty_On_Hand)} in stock`, value: i.Item_Code })), () => kiAddAcc($("kiAcc").value));
+enterKey("kiAcc", () => kiAddAcc($("kiAcc").value));
+bindMultiAttach("kiAcc", t => kiAddAcc(t));
+$("kiEmpFile").onchange = async e => {
+  const f = e.target.files[0]; e.target.value = ""; if (!f) return;
+  if (!window.Html5Qrcode) { alert("The barcode reader did not load. Check the internet connection."); return; }
+  try { $("kiEmp").value = String(await new Html5Qrcode("kiEmpReader").scanFile(f, false)).trim(); }
+  catch (err) { alert("No barcode found on that photo of the ID card. Type the Employee ID instead."); }
+};
 $("kiStockAdd").onclick = () => {
   const code = $("kiStock").value, qty = Math.max(1, parseInt($("kiStockQty").value, 10) || 1);
   if (!code) { msg("kiMsg", "warn", "Choose the stock item first (add it in the Stock tab if it's not listed)."); return; }
@@ -1461,11 +1626,12 @@ $("kiForm").onsubmit = async e => {
   e.preventDefault();
   const user = $("kiUser").value.trim();
   if (!user || !$("kiFloor").value || !$("kiDept").value.trim()) { msg("kiMsg", "warn", "User name, floor and department are required."); return; }
+  if (!docs.kiHandFile) { msg("kiMsg", "warn", "Attach the signed ITC handover form (PDF or photo)."); $("kiHandFile").closest(".handover").scrollIntoView({ behavior: "smooth", block: "center" }); return; }
   const bad = kiItems.find(i => i.isNew && !String(i.model).trim());
   if (bad) { msg("kiMsg", "warn", `Enter the model for the new item ${bad.serial}.`); return; }
-  const kitId = "KIT-" + stamp(), ref = $("kiRef").value.trim();
+  const kitId = "KIT-" + stamp(), ref = $("kiRef").value.trim(), req = $("kiReq").value.trim();
   const d = { kitId, user, emp: $("kiEmp").value.trim(), floor: $("kiFloor").value, dept: $("kiDept").value.trim(), room: $("kiRoom").value.trim(),
-              itc: $("kiItc").checked ? "Yes" : "No", reference: (ref ? ref + " · " : "") + kitId,
+              itc: $("kiItc").checked ? "Yes" : "No", reference: (ref ? ref + " · " : "") + kitId, req,
               items: kiItems.map(i => i.isNew ? { serial: i.serial, isNew: true, type: i.type, brand: String(i.brand).trim(), model: String(i.model).trim() } : { serial: i.serial }),
               stock: kiLines.map(l => ({ code: l.code, qty: l.qty })) };
   const total = d.items.length + d.stock.reduce((t, l) => t + l.qty, 0);
@@ -1506,6 +1672,7 @@ function bkReset() {
 function bkApplyType() { $("bkBrandList").innerHTML = (BRANDS[$("bkType").value] || []).map(b => `<option value="${b}">`).join(""); }
 $("bkType").onchange = bkApplyType;
 $("bkSerials").oninput = bkRender; $("bkQty").oninput = bkRender;
+bindMultiAttach("bkSerials", t => { if (bkParse().map(U).includes(U(t))) return; const v = $("bkSerials").value.replace(/\s+$/, ""); $("bkSerials").value = (v ? v + "\n" : "") + t + "\n"; }, bkRender);
 $("bkSerials").addEventListener("keydown", e => {        // USB scanners send Enter after each code: keep it as a new line
   if (e.key === "Enter") setTimeout(bkRender, 0);
 });
@@ -1566,10 +1733,12 @@ $("mvSave").onclick = async () => {
   if (!rep && !$("mvFloor").value && !$("mvDept").value.trim()) { msg("asMsg", "warn", "Enter where it is going (floor and department)."); return; }
   const d = { serial, reason, status: $("mvStatus").value, toFloor: $("mvFloor").value, toDept: $("mvDept").value.trim(), toRoom: $("mvRoom").value.trim(), newUser: $("mvUser").value.trim(),
               vendor: $("mvRepair").classList.contains("hidden") ? "" : $("mvVendor").value, vendorContact: $("mvContact").value.trim(), vendorPhone: $("mvPhone").value.trim(),
-              vendorTicket: $("mvTicket").value.trim(), expectedBack: $("mvExpected").value, fault: $("mvFault").value.trim(), reference: $("mvRef").value.trim() };
+              vendorTicket: $("mvTicket").value.trim(), expectedBack: $("mvExpected").value, fault: $("mvFault").value.trim(), reference: $("mvRef").value.trim(), req: $("mvReq").value.trim() };
   if (d.reason === "Handover to user" && !d.newUser) { msg("asMsg", "warn", "Enter the new user's name for a handover."); return; }
   if (d.newUser) { d.newUserEmp = $("mvEmp").value.trim(); d.itc = $("mvItc").checked ? "Yes" : "No"; }
-  const mph = d.newUser || d.reason === "Handover to user" ? docItem("mvHandFile", serial) : []; msg("asMsg", "warn", "Sending…");
+  if ((d.newUser || d.reason === "Handover to user") && !docs.mvHandFile) { msg("asMsg", "warn", "Attach the signed ITC handover form (PDF or photo) for the new user."); window.scrollTo(0, 0); return; }
+  const mph = d.newUser || d.reason === "Handover to user" ? docItem("mvHandFile", serial) : [];
+  $("mvSave").disabled = true; msg("asMsg", "warn", "Sending…");
   try {
     await write("move", d, mph); applyLocal("move", d); resetAsset(); window.scrollTo(0, 0);
     msg("asMsg", "ok", `Saved: ${serial} — ${reason}${d.vendor ? " to " + d.vendor : ""}${d.newUser ? ", handed over to " + d.newUser : ""}.${mph.length ? " Handover form attached." : ""}`);
@@ -1617,10 +1786,12 @@ function setDir(dir) {
 }
 document.querySelectorAll("#stDir button").forEach(b => b.onclick = () => { if (stState === "new" && b.dataset.d === "OUT") return; setDir(b.dataset.d); });
 function resetStock() {
+  stEditCode = null; $("stQtyBox").classList.add("hidden"); $("stMove").classList.remove("hidden"); $("stEditCancel").classList.add("hidden"); $("stSave").textContent = "Save movement";
   $("stForm").reset(); $("stCode").readOnly = false; $("stMove").disabled = true; $("stItem").disabled = true; $("stSave").disabled = true;
   $("stQty").value = 1; $("stReorder").value = 5; setDir("IN"); stState = null; stFix = null; msg("stMsg");
 }
 async function stLookup() {
+  if (stState === "edit") return;
   let c = $("stCode").value.trim(); if (!c) { msg("stMsg", "warn", "Scan or type an item code first."); return; }
   msg("stMsg", "warn", "Checking item…");
   try { await load(); } catch (e) { msg("stMsg", "err", "Could not check: " + e.message); return; }
@@ -1647,10 +1818,44 @@ async function stLookup() {
     } else msg("stMsg", "ok", "New item — fill in its details; the quantity is received into stock.");
   }
 }
-$("stCheck").onclick = stLookup; enterKey("stCode", stLookup);
+$("stCheck").onclick = stLookup; enterKey("stCode", stLookup); setupLookup("stCode", stSuggest, stLookup);
+/* ---- edit / delete a stock item (fix a wrong entry) ---- */
+let stEditCode = null;
+function stEdit(code) {
+  const i = stockOf(code); if (!i) return;
+  resetStock(); stState = "edit"; stEditCode = i.Item_Code;
+  $("stCode").value = i.Item_Code; $("stCode").readOnly = false;
+  $("stName").value = i.Item_Name || ""; $("stType").value = i.Item_Type || "Other"; $("stBrand").value = i.Brand || "";
+  $("stModels").value = fitsFor(i).join(", "); $("stReorder").value = num(i.Reorder_Level); $("stLoc").value = i.Store_Location || "";
+  $("stQtyNow").value = num(i.Qty_On_Hand); $("stQtyBox").classList.remove("hidden");
+  $("stItem").disabled = false; $("stMove").disabled = true; $("stMove").classList.add("hidden");
+  $("stSave").disabled = false; $("stSave").textContent = "Save changes"; $("stEditCancel").classList.remove("hidden");
+  msg("stMsg", "warn", `Editing ${i.Item_Code}. Correct the code, details or the quantity in stock, then Save changes.`);
+  window.scrollTo(0, 0);
+}
+async function stDelete(code) {
+  const i = stockOf(code); if (!i) return;
+  if (!confirm(`Delete ${i.Item_Code} — ${i.Item_Name} (${num(i.Qty_On_Hand)} in stock) from the stock list?\n\nIts past movements stay in the history.`)) return;
+  try { await write("stockDelete", { code: i.Item_Code }); applyLocal("stockDelete", { code: i.Item_Code }); msg("stMsg", "ok", `Deleted ${i.Item_Code} from the stock list.`); window.scrollTo(0, 0); }
+  catch (err) { msg("stMsg", "err", "Not sent: " + err.message); }
+}
+$("stEditCancel").onclick = () => { resetStock(); };
+async function stSaveEdit() {
+  const code = $("stCode").value.trim(), qn = $("stQtyNow").value === "" ? null : parseInt($("stQtyNow").value, 10);
+  if (!code || !$("stName").value.trim()) { msg("stMsg", "warn", "Item code and name are required."); return; }
+  if (!$("stLoc").value.trim()) { msg("stMsg", "warn", "Store location is required."); return; }
+  if (codeKey(code) !== codeKey(stEditCode) && stockOf(code)) { msg("stMsg", "warn", `${code} already exists in the stock list.`); return; }
+  const d = { code: stEditCode, newCode: code, name: $("stName").value.trim(), type: $("stType").value, brand: $("stBrand").value.trim(), models: $("stModels").value.trim(),
+              reorder: parseInt($("stReorder").value, 10) || 0, location: $("stLoc").value.trim(), qty: qn };
+  $("stSave").disabled = true; msg("stMsg", "warn", "Sending…");
+  try { await write("stockEdit", d); applyLocal("stockEdit", d); resetStock(); msg("stMsg", "ok", `Saved changes to ${code}.`); }
+  catch (err) { msg("stMsg", "err", "Not sent: " + err.message); $("stSave").disabled = false; }
+}
 $("stForm").onsubmit = async e => {
   e.preventDefault();
+  if (stState === "edit") return stSaveEdit();
   if (!stState) return;
+  if (!$("stLoc").value.trim()) { msg("stMsg", "warn", stState === "new" ? "Enter the store location." : "This item has no store location — use ✏️ Edit in the list below to add it."); if (stState === "new") $("stLoc").focus(); return; }
   const qty = parseInt($("stQty").value, 10) || 0;
   if (qty < 1) { msg("stMsg", "warn", "Quantity must be at least 1."); return; }
   if (stState === "new" && !$("stName").value.trim()) { msg("stMsg", "warn", "Enter the item name."); return; }
@@ -1690,10 +1895,12 @@ function renderStock(hit) {
   const rows = found.filter(s => stFilter === "All" || (s.Item_Type || "Other") === stFilter).sort((a, b) => (num(a.Qty_On_Hand) - num(a.Reorder_Level)) - (num(b.Qty_On_Hand) - num(b.Reorder_Level)));
   const low = DB.stock.filter(s => num(s.Qty_On_Hand) <= num(s.Reorder_Level)).length;
   $("stCount").textContent = words.length ? `(${rows.length} of ${DB.stock.length} items)` : `(${rows.length} items, ${low} to reorder)`;
-  $("stTable").innerHTML = `<tr><th>Code</th><th>Item</th><th>Type</th><th>For</th><th class="num">In stock</th><th class="num">Reorder at</th><th>Status</th><th>Location</th></tr>` +
+  $("stTable").innerHTML = `<tr><th>Code</th><th>Item</th><th>Type</th><th>For</th><th class="num">In stock</th><th class="num">Reorder at</th><th>Status</th><th>Location</th>${isAdmin ? "<th></th>" : ""}</tr>` +
     (rows.length ? rows.map(s => { const l = num(s.Qty_On_Hand) <= num(s.Reorder_Level);
-      return `<tr class="click${U(s.Item_Code) === U(hit) ? " hit" : ""}" data-c="${esc(s.Item_Code)}"><td>${hl(s.Item_Code, words)}</td><td>${hl(s.Item_Name, words)}</td><td>${hl(s.Item_Type, words)}</td><td>${hl(fitsFor(s).join(", "), words)}</td><td class="num">${num(s.Qty_On_Hand)}</td><td class="num">${num(s.Reorder_Level)}</td><td><span class="badge ${l ? "low" : "okb"}">${l ? "Reorder" : "OK"}</span></td><td>${hl(s.Store_Location, words)}</td></tr>`; }).join("")
+      return `<tr class="click${U(s.Item_Code) === U(hit) ? " hit" : ""}" data-c="${esc(s.Item_Code)}"><td>${hl(s.Item_Code, words)}</td><td>${hl(s.Item_Name, words)}</td><td>${hl(s.Item_Type, words)}</td><td>${hl(fitsFor(s).join(", "), words)}</td><td class="num">${num(s.Qty_On_Hand)}</td><td class="num">${num(s.Reorder_Level)}</td><td><span class="badge ${l ? "low" : "okb"}">${l ? "Reorder" : "OK"}</span></td><td>${s.Store_Location ? hl(s.Store_Location, words) : `<span class="badge low">missing</span>`}</td>${isAdmin ? `<td class="act"><button type="button" class="ib" data-ed="${esc(s.Item_Code)}" title="Edit">✏️ Edit</button><button type="button" class="ib del" data-del="${esc(s.Item_Code)}" title="Delete">🗑 Delete</button></td>` : ""}</tr>`; }).join("")
     : `<tr><td colspan="8" class="muted">${words.length ? `No stock items match “${esc($("stQ").value)}”.` : "No items yet — scan a cartridge's part number above and receive it."}</td></tr>`);
+  document.querySelectorAll("#stTable [data-ed]").forEach(b => b.onclick = e => { e.stopPropagation(); stEdit(b.dataset.ed); });
+  document.querySelectorAll("#stTable [data-del]").forEach(b => b.onclick = e => { e.stopPropagation(); stDelete(b.dataset.del); });
   document.querySelectorAll("#stTable tr.click").forEach(tr => tr.onclick = () => { resetStock(); $("stCode").value = tr.dataset.c; stLookup(); window.scrollTo(0, 0); });
 }
 
