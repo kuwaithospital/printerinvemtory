@@ -267,6 +267,11 @@
   .pick button{display:flex;gap:10px;align-items:center;text-align:left;width:100%;border:1px solid var(--line);background:#fff;border-radius:10px;padding:9px 12px;font:inherit;font-size:14px;cursor:pointer;color:var(--ink)}
   .pick button:hover{background:var(--brand2);border-color:var(--brand)}
   .pick .si{font-size:18px}.pick small{display:block;color:var(--muted);font-size:12px}
+  .lkin{position:relative;flex:1;min-width:0;display:flex}
+  .lkin input{padding-right:84px!important}
+  .lkx{position:absolute;right:6px;top:50%;transform:translateY(-50%);border:1px solid var(--line);background:#fff;color:#b3261e;border-radius:16px;padding:4px 10px;font:600 13px "Fira Sans",system-ui,sans-serif;cursor:pointer;white-space:nowrap}
+  .lkx:hover{background:#fdecea;border-color:#f3b9b4}
+  .lkin input:placeholder-shown + .lkx{display:none}
   .people{display:flex;flex-direction:column;gap:10px;margin-top:8px}
   .person{border:1px solid var(--line);border-radius:10px;padding:10px 12px 12px;background:#f7f8fc;position:relative}
   .person .ptop{display:flex;align-items:center;gap:8px}
@@ -458,7 +463,7 @@
       </div>
       <label>Printer serial No <span class="muted">— or search by model, toner No, department</span></label>
       <div class="lookup">
-        <div class="row"><input id="svSerial" placeholder="Scan, type serial, model or toner No" autocomplete="off"><button type="button" class="btn secondary cam" data-cam="svSerial" title="Scan with camera">📷 <span>Camera</span></button><label class="btn secondary att" for="svSerialFile" title="Read a barcode from a photo">📎 <span>Attach</span></label><input type="file" id="svSerialFile" accept="image/*" class="hidefile"></div>
+        <div class="row"><span class="lkin"><input id="svSerial" placeholder="Scan, type serial, model or toner No" autocomplete="off"><button type="button" class="lkx" data-x="svSerial" title="Clear and start a new search">✕ New</button></span><button type="button" class="btn secondary cam" data-cam="svSerial" title="Scan with camera">📷 <span>Camera</span></button><label class="btn secondary att" for="svSerialFile" title="Read a barcode from a photo">📎 <span>Attach</span></label><input type="file" id="svSerialFile" accept="image/*" class="hidefile"></div>
         <div class="sugg hidden" id="svSerialSug"></div>
       </div>
       <div id="svSerialReader" class="reader hidden"></div>
@@ -523,7 +528,7 @@
       <h2>Register, update or move an asset</h2>
       <label>Serial No <span class="muted">— or search by tag, model, part No, user</span></label>
       <div class="lookup">
-        <div class="row"><input id="asSerial" placeholder="Scan, type serial, tag, model or user" autocomplete="off"><button type="button" class="btn secondary cam" data-cam="asSerial" title="Scan with camera">📷 <span>Camera</span></button><label class="btn secondary att" for="asSerialFile" title="Read a barcode from a photo">📎 <span>Attach</span></label><input type="file" id="asSerialFile" accept="image/*" class="hidefile"></div>
+        <div class="row"><span class="lkin"><input id="asSerial" placeholder="Scan, type serial, tag, model or user" autocomplete="off"><button type="button" class="lkx" data-x="asSerial" title="Clear and start a new search">✕ New</button></span><button type="button" class="btn secondary cam" data-cam="asSerial" title="Scan with camera">📷 <span>Camera</span></button><label class="btn secondary att" for="asSerialFile" title="Read a barcode from a photo">📎 <span>Attach</span></label><input type="file" id="asSerialFile" accept="image/*" class="hidefile"></div>
         <div class="sugg hidden" id="asSerialSug"></div>
       </div>
       <div id="asSerialReader" class="reader hidden"></div>
@@ -758,7 +763,7 @@
       <p class="muted" style="font-size:13px;margin:0 0 6px">Received printers, laptops, PCs… with serial numbers (e.g. 10 of one model)? Use <a href="#bulk" class="bkGo">📦 Bulk register</a> below — each serial becomes an asset.</p>
       <label>Item code <span class="muted">— part No, barcode, item name or printer model</span></label>
       <div class="lookup">
-        <div class="row"><input id="stCode" placeholder="Scan or type part No, name or printer model" autocomplete="off"><button type="button" class="btn secondary cam" data-cam="stCode" title="Scan with camera">📷 <span>Camera</span></button><label class="btn secondary att" for="stCodeFile" title="Read a barcode from a photo">📎 <span>Attach</span></label><input type="file" id="stCodeFile" accept="image/*" class="hidefile"></div>
+        <div class="row"><span class="lkin"><input id="stCode" placeholder="Scan or type part No, name or printer model" autocomplete="off"><button type="button" class="lkx" data-x="stCode" title="Clear and start a new search">✕ New</button></span><button type="button" class="btn secondary cam" data-cam="stCode" title="Scan with camera">📷 <span>Camera</span></button><label class="btn secondary att" for="stCodeFile" title="Read a barcode from a photo">📎 <span>Attach</span></label><input type="file" id="stCodeFile" accept="image/*" class="hidefile"></div>
         <div class="sugg hidden" id="stCodeSug"></div>
       </div>
       <div id="stCodeReader" class="reader hidden"></div>
@@ -1483,6 +1488,12 @@ async function svLookup() {
 $("svSerial").addEventListener("input", () => { if (svState) { const v = $("svSerial").value; resetService(); $("svSerial").value = v; } });
 $("asSerial").addEventListener("input", () => { if (asState) { resetAsset(true); } });
 $("stCode").addEventListener("input", () => { if (stState && stState !== "edit") { const v = $("stCode").value; resetStock(); $("stCode").value = v; } });
+/* ✕ New: clear the search box and the form, ready for the next one */
+document.querySelectorAll(".lkx").forEach(b => b.onclick = () => {
+  const id = b.dataset.x; stopScanner();
+  if (id === "svSerial") resetService(); else if (id === "asSerial") resetAsset(); else if (id === "stCode") resetStock();
+  $(id).value = ""; $(id + "Sug") && $(id + "Sug").classList.add("hidden"); $(id).focus(); window.scrollTo(0, 0);
+});
 $("svCheck").onclick = svLookup; enterKey("svSerial", svLookup); setupLookup("svSerial", svSuggest, svLookup);
 $("svForm").onsubmit = async e => {
   e.preventDefault();
