@@ -441,7 +441,7 @@
       <fieldset id="svDetails" disabled>
         <div class="two">
           <div><label>Brand</label><select id="svBrand"></select></div>
-          <div><label>Printer model</label><input id="svModel"></div>
+          <div><label>Printer model</label><input id="svModel" placeholder="e.g. HP Color LaserJet E877"></div>
         </div>
         <div class="two">
           <div><label>Floor</label><select id="svFloor" class="floors"></select></div>
@@ -731,7 +731,7 @@
           <div><label>Type</label><select id="stType"><option>Toner</option><option>Drum</option><option>Ribbon</option><option>Label roll</option><option>Fuser</option><option>Spare part</option><option>Cable / adapter</option><option>Battery</option><option>Mouse / keyboard</option><option>Headset</option><option>Accessory</option><option>Other</option></select></div>
           <div><label>Brand</label><input id="stBrand" placeholder="e.g. HP"></div>
         </div>
-        <label>For asset types / models</label><input id="stModels" placeholder="e.g. HP MFP 45250, M507">
+        <label>For asset types / models</label><input id="stModels" placeholder="e.g. HP Color LaserJet E877, E45028">
         <div class="two">
           <div><label>Reorder level</label><input id="stReorder" type="number" value="5" min="0"></div>
           <div><label>Store location</label><input id="stLoc" placeholder="e.g. IT store, shelf B2"></div>
@@ -823,7 +823,7 @@ const CONFIG = {
   FLOW_WRITE_URL: "https://default7571e4919c534562a9b1e1b1091538.7e.environment.api.powerplatform.com:443/powerautomate/automations/direct/cu/08/workflows/1ea1f1c51a1245cd9e433c31349bd86f/triggers/manual/paths/invoke?api-version=1&sp=%2Ftriggers%2Fmanual%2Frun&sv=1.0&sig=nUhYY1hWwPekqN8icJeMT8aPBq_coLyFvTD0Ut-v4wo",
   // These people see the Reports tab and can edit an existing asset's details
   ADMINS: ["msirajudeen@kuwaithospital.com.kw"],
-  DEFAULT_MODEL: "HP MFP 45250",
+  DEFAULT_MODEL: "",
   PHOTO_MAX_PX: 1280,       // full-size photos saved to OneDrive
   PHOTO_QUALITY: 0.7,
   READ_CACHE_SECONDS: 45    // data is re-read from Excel at most this often (or with Refresh)
@@ -836,9 +836,22 @@ const PRINTER_TONERS = [
   { model: "HP Color LaserJet E45028", match: ["E45028"], toners: [["Black", "W9090MC"], ["Cyan", "W9091MC"], ["Yellow", "W9092MC"], ["Magenta", "W9093MC"]] },
   { model: "HP Color LaserJet E47528", match: ["E47528"], toners: [["Black", "W9090MC"], ["Cyan", "W9091MC"], ["Yellow", "W9092MC"], ["Magenta", "W9093MC"]] },
   { model: "HP LaserJet E40040",       match: ["E40040"], toners: [["Black", "W9024MC"]] },
-  { model: "HP LaserJet E42504",       match: ["E42504"], toners: [["Black", "W9024MC"]] },
+  { model: "HP LaserJet E42540",       match: ["E42540"], toners: [["Black", "W9024MC"]] },
   { model: "HP LaserJet E52645",       match: ["E52645"], toners: [["Black", "W9008MC"]] }
 ];
+const normM = x => String(x || "").toUpperCase().replace(/[^A-Z0-9]/g, "");
+/* HP toner barcodes start with "1P" (part-number prefix): 1PW9092MC = W9092MC */
+const codeKey = c => String(c || "").trim().toUpperCase().replace(/\s+/g, "").replace(/^1P(?=[A-Z][A-Z0-9-]{3,})/, "");
+const stockOf = c => DB.stock.find(i => codeKey(i.Item_Code) === codeKey(c));
+/* what the toner list knows about a cartridge number: colour and the printer models it fits */
+function tonerInfo(code) {
+  const k = codeKey(code), hits = PRINTER_TONERS.filter(t => t.toners.some(([, c]) => codeKey(c) === k));
+  if (!hits.length) return null;
+  return { code: k, color: hits[0].toners.find(([, c]) => codeKey(c) === k)[0], models: hits.map(t => t.model) };
+}
+/* printer models an item fits: what was typed in Stock plus the toner list */
+const fitsFor = i => { const t = tonerInfo(i.Item_Code), typed = String(i.Compatible_Models || "").split(/[,;]/).map(x => x.trim()).filter(Boolean);
+  const out = [...typed]; (t ? t.models : []).forEach(m => { if (!out.some(x => normM(x).includes(normM(m).replace(/^HP(COLOR)?LASERJET/, "")))) out.push(m); }); return out; };
 /* ============================================================================= */
 
 const SCOPES = ["User.Read"];
@@ -989,7 +1002,7 @@ function applyLocal(action, d, replay) {
   if (!replay) PENDING.push({ action, d, at: Date.now(), base: sigCount(action, d) });
   const today = ddmmyyyy(new Date()), time = new Date().toTimeString().slice(0, 5);
   const asset = s => DB.assets.find(a => U(a.Serial_No) === U(s));
-  const item = c => DB.stock.find(i => U(i.Item_Code) === U(c));
+  const item = c => stockOf(c);
   if (action === "asset") {
     const map = { type: "Asset_Type", brand: "Brand", model: "Model", tag: "Asset_Tag", dept: "Clinic_Department", floor: "Floor", room: "Room", status: "Status", user: "Assigned_User", emp: "Employee_ID", prev: "Previous_User", itc: "ITC_Handover", hostname: "Hostname", ip: "IP_Address", mac: "MAC_Address", ext: "Extension", connected: "Connected_To", port: "Switch_Port", channel: "NVR_Channel", warranty: "Warranty_End", notes: "Notes" };
     let a = asset(d.serial);
@@ -1009,6 +1022,7 @@ function applyLocal(action, d, replay) {
     let i = item(d.code); const q = d.direction === "OUT" ? -d.qty : d.qty;
     if (!i) { i = { Item_Code: d.code, Item_Name: d.name, Item_Type: d.type, Brand: d.brand, Compatible_Models: d.models, Qty_On_Hand: 0, Reorder_Level: d.reorder, Store_Location: d.location }; DB.stock.push(i); }
     i.Qty_On_Hand = num(i.Qty_On_Hand) + q;
+    if (d.fix) Object.assign(i, { Brand: d.fix.brand, Item_Type: d.fix.type, Compatible_Models: d.fix.models });
     DB.smoves.unshift({ Move_ID: "…", Move_Date: today, Move_Time: time, Item_Code: d.code, Item_Name: i.Item_Name, Direction: d.direction, Qty: d.qty, Supplier: d.supplier, Issued_Dept: d.issuedDept, Issued_Floor: d.issuedFloor, Received_By: d.receivedBy, Asset_Serial: d.assetSerial, Reference: d.reference, Entered_By: me.name });
   }
   if (action === "move") {
@@ -1136,7 +1150,7 @@ function gsearch() {
   if (q.length < 2) { $("gres").classList.add("hidden"); return; }
   const has = (...v) => v.some(x => String(x ?? "").toLowerCase().includes(q));
   const a = DB.assets.filter(x => has(x.Serial_No, x.Asset_Tag, x.Model, x.Brand, x.Clinic_Department, x.Room, x.Assigned_User, x.Employee_ID, x.Previous_User, x.IP_Address, x.Hostname, x.MAC_Address, x.Extension, x.Asset_Type, x.SNo)).slice(0, 8);
-  const s = DB.stock.filter(x => has(x.Item_Code, x.Item_Name, x.Compatible_Models, x.Item_Type)).slice(0, 5);
+  const s = DB.stock.filter(x => has(x.Item_Code, x.Item_Name, fitsFor(x).join(" "), x.Item_Type, x.Brand)).slice(0, 5);
   const v = DB.vendors.filter(x => has(x.Vendor_Name, x.Contact_Name, x.Phone, x.Email, x.Categories, x.Contacts)).slice(0, 5);
   const l = DB.logs.filter(x => has(x.Serial_No, x.Toner_Item, x.Entered_By, x.Spareparts_Replacement)).slice(0, 5);
   let h = "";
@@ -1197,7 +1211,6 @@ function enterKey(id, fn) { $(id).addEventListener("keydown", e => { if (e.key =
 /* ================= TONER SERVICE ================= */
 let svState = null;
 const TCOL = { Black: "#1b1b1b", Cyan: "#00a3e0", Yellow: "#ffd400", Magenta: "#d6007e" };
-const normM = x => String(x || "").toUpperCase().replace(/[^A-Z0-9]/g, "");
 const tonerSpec = model => { const m = normM(model); if (!m) return null;
   return PRINTER_TONERS.find(t => normM(t.model) === m) || PRINTER_TONERS.find(t => t.match.some(k => m.includes(normM(k)))) || null; };
 function fillTModels(current) {
@@ -1218,7 +1231,7 @@ function showToners() {
   const keep = new Set([...document.querySelectorAll("#svToners input:checked")].map(x => x.value));
   $("svToners").classList.toggle("one", spec.toners.length === 1);
   $("svToners").innerHTML = spec.toners.map(([color, code]) => {
-    const i = DB.stock.find(x => U(x.Item_Code) === U(code));
+    const i = stockOf(code);
     const st = i ? `<small>${num(i.Qty_On_Hand)} in stock</small>` : `<small class="no">not in stock list yet</small>`;
     return `<label class="toner${keep.has(code) ? " on" : ""}"><input type="checkbox" value="${esc(code)}"${keep.has(code) ? " checked" : ""}><span class="dot" style="background:${TCOL[color] || "#888"}"></span><span class="tx"><b>${esc(color)}</b><code>${esc(code)}</code>${st}</span></label>`;
   }).join("");
@@ -1234,7 +1247,7 @@ function resetService() {
 }
 function fillItems() {
   const m = U($("svModel").value);
-  const fits = i => m && (U(i.Compatible_Models).includes(m) || m.includes(U(i.Compatible_Models)) && U(i.Compatible_Models));
+  const fits = i => m && fitsFor(i).some(f => U(f).includes(m) || m.includes(U(f)) || (tonerSpec(m) && tonerSpec(m).model === f));
   const items = [...DB.stock].sort((a, b) => (fits(b) ? 1 : 0) - (fits(a) ? 1 : 0) || String(a.Item_Name).localeCompare(String(b.Item_Name)));
   const keep = $("svItem").value;
   $("svItem").innerHTML = `<option value="">Not from stock</option>` + items.map(i => `<option value="${esc(i.Item_Code)}">${esc(i.Item_Code)} — ${esc(i.Item_Name)} (${num(i.Qty_On_Hand)} in stock)${fits(i) ? " ✓" : ""}</option>`).join("");
@@ -1273,7 +1286,7 @@ $("svForm").onsubmit = async e => {
   const spec = tonerSpec($("svTModel").value);
   const items = spec ? [...document.querySelectorAll("#svToners input:checked")].map(x => x.value) : ($("svItem").value ? [$("svItem").value] : []);
   if (spec && !items.length) { msg("svSaveMsg", "warn", "Tick the toner(s) you replaced."); return; }
-  const low = items.map(c => DB.stock.find(i => U(i.Item_Code) === U(c))).filter(i => i && num(i.Qty_On_Hand) < 1);
+  const low = items.map(c => stockOf(c)).filter(i => i && num(i.Qty_On_Hand) < 1);
   if (low.length && !confirm(`${low.map(i => i.Item_Code).join(", ")} show 0 in stock. Save anyway?`)) return;
   const serial = $("svSerial").value.trim(), base = `${safeName(serial)}_${stamp()}`;
   const model = svState === "new" ? ($("svModel").value.trim() || $("svTModel").value) : $("svTModel").value;
@@ -1594,7 +1607,7 @@ function renderAssets(hit) {
 }
 
 /* ================= STOCK ================= */
-let stState = null, stDir = "IN", stFilter = "All";
+let stState = null, stDir = "IN", stFilter = "All", stFix = null;
 function setDir(dir) {
   stDir = dir; document.querySelectorAll("#stDir button").forEach(x => x.classList.toggle("on", x.dataset.d === dir));
   const out = dir === "OUT";
@@ -1605,24 +1618,33 @@ function setDir(dir) {
 document.querySelectorAll("#stDir button").forEach(b => b.onclick = () => { if (stState === "new" && b.dataset.d === "OUT") return; setDir(b.dataset.d); });
 function resetStock() {
   $("stForm").reset(); $("stCode").readOnly = false; $("stMove").disabled = true; $("stItem").disabled = true; $("stSave").disabled = true;
-  $("stQty").value = 1; $("stReorder").value = 5; setDir("IN"); stState = null; msg("stMsg");
+  $("stQty").value = 1; $("stReorder").value = 5; setDir("IN"); stState = null; stFix = null; msg("stMsg");
 }
 async function stLookup() {
-  const c = $("stCode").value.trim(); if (!c) { msg("stMsg", "warn", "Scan or type an item code first."); return; }
+  let c = $("stCode").value.trim(); if (!c) { msg("stMsg", "warn", "Scan or type an item code first."); return; }
   msg("stMsg", "warn", "Checking item…");
   try { await load(); } catch (e) { msg("stMsg", "err", "Could not check: " + e.message); return; }
-  const i = DB.stock.find(x => U(x.Item_Code) === U(c));
+  const i = stockOf(c), tn = tonerInfo(c);
+  $("stCode").value = i ? i.Item_Code : (tn ? tn.code : c);        // a scanned "1PW9092MC" becomes W9092MC
+  stFix = null;
   $("stCode").readOnly = true; $("stMove").disabled = false; $("stSave").disabled = false;
   if (i) {
     stState = "existing"; $("stItem").disabled = true;
-    $("stName").value = i.Item_Name || ""; $("stType").value = i.Item_Type || "Other"; $("stBrand").value = i.Brand || ""; $("stModels").value = i.Compatible_Models || "";
+    $("stName").value = i.Item_Name || ""; $("stType").value = i.Item_Type || "Other"; $("stBrand").value = i.Brand || ""; $("stModels").value = fitsFor(i).join(", ");
+    if (tn) {   // fill in what the toner list knows (brand, type, printer models) and save it with this movement
+      const f = { brand: i.Brand || "HP", type: "Toner", models: fitsFor(i).join(", ") };
+      if (U(f.brand) !== U(i.Brand) || f.type !== i.Item_Type || f.models !== String(i.Compatible_Models || "")) { stFix = f; $("stBrand").value = f.brand; $("stType").value = f.type; }
+    }
     $("stReorder").value = num(i.Reorder_Level); $("stLoc").value = i.Store_Location || "";
     const low = num(i.Qty_On_Hand) <= num(i.Reorder_Level);
-    msg("stMsg", low ? "warn" : "ok", `${i.Item_Name}: ${num(i.Qty_On_Hand)} in stock${low ? ` — at or below reorder level (${num(i.Reorder_Level)})` : ""}.`);
+    msg("stMsg", low ? "warn" : "ok", `${i.Item_Name}: ${num(i.Qty_On_Hand)} in stock${low ? ` — at or below reorder level (${num(i.Reorder_Level)})` : ""}.${tn ? ` ${tn.color} toner for ${tn.models.join(", ")}.` : ""}`);
     renderStock(i.Item_Code);
   } else {
     stState = "new"; setDir("IN"); $("stItem").disabled = false;
-    msg("stMsg", "ok", "New item — fill in its details; the quantity is received into stock.");
+    if (tn) {
+      $("stName").value = `HP ${tn.code} ${tn.color} toner`; $("stType").value = "Toner"; $("stBrand").value = "HP"; $("stModels").value = tn.models.join(", ");
+      msg("stMsg", "ok", `New item — ${tn.color} toner for ${tn.models.join(", ")}. Details filled in from the toner list; enter the quantity received.`);
+    } else msg("stMsg", "ok", "New item — fill in its details; the quantity is received into stock.");
   }
 }
 $("stCheck").onclick = stLookup; enterKey("stCode", stLookup);
@@ -1633,12 +1655,13 @@ $("stForm").onsubmit = async e => {
   if (qty < 1) { msg("stMsg", "warn", "Quantity must be at least 1."); return; }
   if (stState === "new" && !$("stName").value.trim()) { msg("stMsg", "warn", "Enter the item name."); return; }
   if (stDir === "OUT" && !$("stIssDept").value.trim()) { msg("stMsg", "warn", "Enter the department it is issued to."); return; }
-  const i = DB.stock.find(x => U(x.Item_Code) === U($("stCode").value));
+  const i = stockOf($("stCode").value);
   if (stDir === "OUT" && i && qty > num(i.Qty_On_Hand) && !confirm(`Only ${num(i.Qty_On_Hand)} in stock. Issue ${qty} anyway?`)) return;
   const d = { code: $("stCode").value.trim(), name: $("stName").value.trim(), type: $("stType").value, brand: $("stBrand").value.trim(), models: $("stModels").value.trim(),
               reorder: parseInt($("stReorder").value, 10) || 0, location: $("stLoc").value.trim(), direction: stDir, qty, reference: $("stRef").value.trim(),
               supplier: stDir === "IN" ? $("stVendor").value : "", issuedDept: stDir === "OUT" ? $("stIssDept").value.trim() : "", issuedFloor: stDir === "OUT" ? $("stIssFloor").value : "",
               receivedBy: stDir === "OUT" ? $("stRecv").value.trim() : "", assetSerial: stDir === "OUT" ? $("stAsset").value.trim() : "" };
+  if (stState === "existing" && stFix) d.fix = stFix;   // brand / type / printer models from the toner list
   $("stSave").disabled = true; msg("stMsg", "warn", "Sending…");
   try {
     await write("stock", d); applyLocal("stock", d); resetStock(); window.scrollTo(0, 0);
@@ -1649,7 +1672,7 @@ function renderStock(hit) {
   const words = qWords($("stQ").value);
   const mv = words.length ? DB.smoves.filter(m => qMatch(words, m.Item_Code, m.Item_Name, m.Direction, m.Supplier, m.Issued_Dept, m.Issued_Floor, m.Received_By, m.Asset_Serial, m.Reference, m.Entered_By, m.Move_Date)) : [];
   const mvCodes = new Set(mv.map(m => U(m.Item_Code)));
-  const found = DB.stock.filter(s => qMatch(words, s.Item_Code, s.Item_Name, s.Item_Type, s.Brand, s.Compatible_Models, s.Store_Location) || mvCodes.has(U(s.Item_Code)));
+  const found = DB.stock.filter(s => qMatch(words, s.Item_Code, codeKey(s.Item_Code), s.Item_Name, s.Item_Type, s.Brand, fitsFor(s).join(" "), s.Store_Location) || mvCodes.has(U(s.Item_Code)));
   const types = ["All", ...new Set(DB.stock.map(s => s.Item_Type || "Other"))];
   if (!types.includes(stFilter)) stFilter = "All";
   $("stChips").innerHTML = types.map(t => { const c = t === "All" ? found.length : found.filter(s => (s.Item_Type || "Other") === t).length;
@@ -1669,7 +1692,7 @@ function renderStock(hit) {
   $("stCount").textContent = words.length ? `(${rows.length} of ${DB.stock.length} items)` : `(${rows.length} items, ${low} to reorder)`;
   $("stTable").innerHTML = `<tr><th>Code</th><th>Item</th><th>Type</th><th>For</th><th class="num">In stock</th><th class="num">Reorder at</th><th>Status</th><th>Location</th></tr>` +
     (rows.length ? rows.map(s => { const l = num(s.Qty_On_Hand) <= num(s.Reorder_Level);
-      return `<tr class="click${U(s.Item_Code) === U(hit) ? " hit" : ""}" data-c="${esc(s.Item_Code)}"><td>${hl(s.Item_Code, words)}</td><td>${hl(s.Item_Name, words)}</td><td>${hl(s.Item_Type, words)}</td><td>${hl(s.Compatible_Models, words)}</td><td class="num">${num(s.Qty_On_Hand)}</td><td class="num">${num(s.Reorder_Level)}</td><td><span class="badge ${l ? "low" : "okb"}">${l ? "Reorder" : "OK"}</span></td><td>${hl(s.Store_Location, words)}</td></tr>`; }).join("")
+      return `<tr class="click${U(s.Item_Code) === U(hit) ? " hit" : ""}" data-c="${esc(s.Item_Code)}"><td>${hl(s.Item_Code, words)}</td><td>${hl(s.Item_Name, words)}</td><td>${hl(s.Item_Type, words)}</td><td>${hl(fitsFor(s).join(", "), words)}</td><td class="num">${num(s.Qty_On_Hand)}</td><td class="num">${num(s.Reorder_Level)}</td><td><span class="badge ${l ? "low" : "okb"}">${l ? "Reorder" : "OK"}</span></td><td>${hl(s.Store_Location, words)}</td></tr>`; }).join("")
     : `<tr><td colspan="8" class="muted">${words.length ? `No stock items match “${esc($("stQ").value)}”.` : "No items yet — scan a cartridge's part number above and receive it."}</td></tr>`);
   document.querySelectorAll("#stTable tr.click").forEach(tr => tr.onclick = () => { resetStock(); $("stCode").value = tr.dataset.c; stLookup(); window.scrollTo(0, 0); });
 }
