@@ -262,6 +262,11 @@
   @media(max-width:640px){#appRoot .lookup .btn span{display:none} #appRoot .lookup .btn.cam,#appRoot .lookup .btn.att{padding:0 12px;font-size:18px}}
   .svfoot{margin-top:20px;text-align:center}
   .svfoot .btn{margin-top:0}
+  .pick{display:flex;flex-direction:column;gap:6px;margin-top:8px}
+  .pick:empty{display:none}
+  .pick button{display:flex;gap:10px;align-items:center;text-align:left;width:100%;border:1px solid var(--line);background:#fff;border-radius:10px;padding:9px 12px;font:inherit;font-size:14px;cursor:pointer;color:var(--ink)}
+  .pick button:hover{background:var(--brand2);border-color:var(--brand)}
+  .pick .si{font-size:18px}.pick small{display:block;color:var(--muted);font-size:12px}
   .people{display:flex;flex-direction:column;gap:10px;margin-top:8px}
   .person{border:1px solid var(--line);border-radius:10px;padding:10px 12px 12px;background:#f7f8fc;position:relative}
   .person .ptop{display:flex;align-items:center;gap:8px}
@@ -459,6 +464,7 @@
       <div id="svSerialReader" class="reader hidden"></div>
       <button type="button" class="btn secondary" id="svCheck">Check serial</button>
       <div id="svMsg"></div>
+      <div id="svPick" class="pick"></div>
       <fieldset id="svModelBox" disabled>
         <label>Printer model <span class="req">*</span></label>
         <select id="svTModel"></select>
@@ -473,8 +479,8 @@
       </fieldset>
       <fieldset id="svJob" disabled>
         <div class="two">
-          <div><label>Ticket ID</label><input id="svTicket" placeholder="e.g. Helpdesk #4471"></div>
-          <div><label>Req. name (requested by)</label><input id="svReq" placeholder="e.g. Nurse Mariam, LDR"></div>
+          <div><label>Ticket ID <span class="req">*</span></label><input id="svTicket" placeholder="e.g. Helpdesk #4471"></div>
+          <div><label>Requester name <span class="req">*</span></label><input id="svReq" placeholder="e.g. Nurse Mariam, LDR"></div>
         </div>
         <div class="two">
           <div><label>Printout reading (page counter)</label><input type="number" id="svReading" inputmode="numeric" min="0" step="1" placeholder="e.g. 45210"></div>
@@ -538,8 +544,8 @@
       <fieldset id="asDetailPane" disabled>
         <h2 id="asDetailTitle">Asset details</h2>
         <div class="two">
-          <div><label>Ticket ID</label><input id="asTicket" placeholder="e.g. Helpdesk #4471"></div>
-          <div><label>Req. name (requested by)</label><input id="asReq" placeholder="e.g. Dr. Ahmed / HR"></div>
+          <div><label>Ticket ID <span class="req">*</span></label><input id="asTicket" placeholder="e.g. Helpdesk #4471"></div>
+          <div><label>Requester name <span class="req">*</span></label><input id="asReq" placeholder="e.g. Dr. Ahmed / HR"></div>
         </div>
         <div class="two">
           <div><label>Asset type</label><select id="asType"></select></div>
@@ -632,8 +638,8 @@
           <label>Fault description</label><input id="mvFault" placeholder="e.g. No display, backlight failure">
         </div>
         <div class="two">
-          <div><label>Ticket ID</label><input id="mvRef" placeholder="e.g. Helpdesk #4471"></div>
-          <div><label>Req. name (requested by)</label><input id="mvReq" placeholder="e.g. Head nurse ICU"></div>
+          <div><label>Ticket ID <span class="req">*</span></label><input id="mvRef" placeholder="e.g. Helpdesk #4471"></div>
+          <div><label>Requester name <span class="req">*</span></label><input id="mvReq" placeholder="e.g. Head nurse ICU"></div>
         </div>
         <button type="button" class="btn" id="mvSave">Save move</button>
         <button type="button" class="btn secondary" id="mvCancel">Cancel</button>
@@ -668,8 +674,8 @@
           </div>
         </div>
         <div class="two">
-          <div><label>Ticket ID</label><input id="kiRef" placeholder="e.g. Helpdesk #4471"></div>
-          <div><label>Req. name (requested by)</label><input id="kiReq" placeholder="e.g. HR — new joiner"></div>
+          <div><label>Ticket ID <span class="req">*</span></label><input id="kiRef" placeholder="e.g. Helpdesk #4471"></div>
+          <div><label>Requester name <span class="req">*</span></label><input id="kiReq" placeholder="e.g. HR — new joiner"></div>
         </div>
       </div>
       <div>
@@ -764,12 +770,12 @@
         <div id="stOutBox" class="hidden">
           <h3>Issued to</h3>
           <div class="two">
-            <div><label>Dept / Clinic</label><input id="stIssDept" list="deptList" placeholder="e.g. LAB Reception"></div>
+            <div><label>Dept / Clinic <span class="req">*</span></label><input id="stIssDept" list="deptList" placeholder="e.g. LAB Reception"></div>
             <div><label>Floor</label><select id="stIssFloor" class="floors"></select></div>
           </div>
           <div class="two">
-            <div><label>Received by (staff name)</label><input id="stRecv" placeholder="e.g. Nurse Mariam"></div>
-            <div><label>For asset (optional serial)</label><input id="stAsset" placeholder="e.g. D4N201104412"></div>
+            <div><label>Received by (staff name) <span class="req">*</span></label><input id="stRecv" placeholder="e.g. Nurse Mariam"></div>
+            <div><label>For asset (serial No) <span class="req">*</span></label><input id="stAsset" placeholder="e.g. D4N201104412" list="stAssetList"><datalist id="stAssetList"></datalist></div>
           </div>
         </div>
       </fieldset>
@@ -913,7 +919,7 @@ const TYPES = {"Printing":["Printer","Barcode printer","Label printer","ID card 
 const ICON = {"Printer":"🖨️","Barcode printer":"🏷️","Label printer":"🏷️","ID card printer":"🪪","Barcode scanner":"🔫","ID card scanner":"🪪","Document scanner":"📠","Desktop PC":"🖥️","Laptop":"💻","Laptop dock station":"🔌","Monitor":"🖥️","Thin client":"🖥️","Webcam":"📷","Access point":"📶","Network switch":"🔀","IP phone":"☎️","CCTV camera":"📹","NVR / recorder":"📼","Other":"📦"};
 const FIELDS = {"Printer":["ip","mac","port"],"Barcode printer":["ip","connected"],"Label printer":["connected","ip"],"ID card printer":["connected"],"Barcode scanner":["connected"],"ID card scanner":["connected"],"Document scanner":["connected","ip"],"Desktop PC":["hostname","user","ip","mac"],"Laptop":["hostname","user","mac"],"Laptop dock station":["connected","user"],"Monitor":["connected","user"],"Thin client":["hostname","ip","mac"],"Webcam":["connected","user"],"Access point":["ip","mac","port"],"Network switch":["ip","mac"],"IP phone":["ext","user","ip","mac","port"],"CCTV camera":["ip","mac","port","channel"],"NVR / recorder":["ip","mac"],"Other":["user"]};
 const BRANDS = {"Printer":["HP","RICOH","CANON","LEXMARK"],"Barcode printer":["Zebra","Honeywell","TSC"],"Label printer":["Zebra","Brother","Dymo"],"ID card printer":["Evolis","Zebra","HID Fargo"],"Barcode scanner":["Honeywell","Zebra","Datalogic"],"ID card scanner":["Thales","Gemalto","Plustek"],"Desktop PC":["HP","Dell","Lenovo"],"Laptop":["HP","Dell","Lenovo","Apple"],"Laptop dock station":["HP","Dell","Lenovo"],"Monitor":["HP","Dell","Samsung","LG"],"Webcam":["Logitech","HP","Microsoft"],"Access point":["Aruba","Cisco","Ubiquiti"],"Network switch":["Aruba","Cisco","HPE"],"IP phone":["Cisco","Yealink","Avaya"],"CCTV camera":["Hikvision","Axis","Dahua"],"NVR / recorder":["Hikvision","Dahua","Milestone"]};
-const PRINTER_BRANDS = ["HP","RICOH","CANON","LEXMARK","Other"];
+const PRINTER_BRANDS = ["HP"];
 const VCAT_GROUPS = {
   "Hardware": ["Printers","Consumables","Barcode & ID card","Scanners","CPUs / Desktop PCs","Laptops","Monitors","Servers","Storage","Networks","Phones","CCTV & security","UPS & power","Audio-visual","Hardware & accessories"],
   "Software & services": ["Software & licenses","Cloud & internet","Cabling & installation","AMC / maintenance"]
@@ -1352,6 +1358,14 @@ function stSuggest(q, raw) {
 
 function enterKey(id, fn) { $(id).addEventListener("keydown", e => { if (e.key === "Enter") { e.preventDefault(); if ($(id).value.trim()) fn(); } }); }
 
+/* Ticket ID and requester name are required on every save */
+function needTicket(tId, rId, msgId) {
+  const t = $(tId).value.trim(), r = $(rId).value.trim();
+  if (t && r) return true;
+  msg(msgId, "warn", !t && !r ? "Enter the Ticket ID and the requester name." : !t ? "Enter the Ticket ID." : "Enter the requester name.");
+  const el = $(!t ? tId : rId); el.focus(); el.scrollIntoView({ behavior: "smooth", block: "center" });
+  return false;
+}
 /* ================= TONER SERVICE ================= */
 let svState = null;
 const TCOL = { Black: "#1b1b1b", Cyan: "#00a3e0", Yellow: "#ffd400", Magenta: "#d6007e" };
@@ -1384,7 +1398,8 @@ function showToners() {
 }
 function resetService() {
   $("svForm").reset(); $("svBy").value = me.name; $("svDate").value = ddmmyyyy(new Date());
-  $("svBrand").value = "HP"; $("svModel").value = ""; $("svModel").classList.add("hidden");
+  $("svBrand").innerHTML = PRINTER_BRANDS.map(b => `<option>${b}</option>`).join(""); $("svBrand").value = "HP"; $("svModel").value = ""; $("svModel").classList.add("hidden");
+  if ($("svPick")) $("svPick").innerHTML = ""; svHint = null;
   $("svDetails").disabled = true; $("svModelBox").disabled = true; $("svMaint").disabled = true; $("svJob").disabled = true; $("svSave").disabled = true; $("svSerial").readOnly = false;
   clearPhoto("svBefore", "svBeforeImg"); clearPhoto("svAfter", "svAfterImg");
   svState = null; msg("svMsg"); fillItems(); fillTModels("");
@@ -1406,24 +1421,46 @@ $("svTModel").onchange = () => {
   $("svModel").classList.toggle("hidden", !other); if (other) $("svModel").focus();
   showToners();
 };
+let svHint = null;   // toner number typed instead of a serial: remembered to set the model and tick the toner
 async function svLookup() {
   const s = $("svSerial").value.trim(); if (!s) { msg("svMsg", "warn", "Scan or type a serial number first."); return; }
   msg("svMsg", "warn", "Checking serial…");
   try { await load(); } catch (e) { msg("svMsg", "err", "Could not check: " + e.message); return; }
+  $("svPick").innerHTML = "";
   const p = DB.assets.find(a => U(a.Serial_No) === U(s));
+  const tn = !p && tonerInfo(s);
+  if (tn) {   // a toner number: find the printers that use it
+    svHint = tn;
+    const prs = printersForToner(s);
+    if (prs.length === 1) { $("svSerial").value = prs[0].Serial_No; return svLookup(); }
+    $("svSerial").value = "";
+    msg("svMsg", "ok", `${tn.code} is the ${tn.color} toner for ${tn.models.join(" / ")}. ${prs.length ? "Choose the printer below, or scan the printer's serial" : "No printer of that model is registered yet — scan the printer's serial"}; the model and toner will be filled in for you.`);
+    $("svPick").innerHTML = prs.slice(0, 12).map(a => `<button type="button" data-s="${esc(a.Serial_No)}"><span class="si">🖨️</span><span><b>${esc(a.Serial_No)}</b><small>${esc([a.Model, a.Floor, a.Clinic_Department].filter(Boolean).join(" · "))}</small></span></button>`).join("");
+    $("svPick").querySelectorAll("button").forEach(b => b.onclick = () => { $("svSerial").value = b.dataset.s; svLookup(); });
+    $("svSerial").focus(); return;
+  }
   if (p && p.Asset_Type && p.Asset_Type !== "Printer") { msg("svMsg", "warn", `${s} is a ${String(p.Asset_Type).toLowerCase()}, not a printer.`); return; }
   $("svSerial").readOnly = true; $("svMaint").disabled = false; $("svJob").disabled = false; $("svSave").disabled = false;
   if (p) {
     svState = "existing";
-    $("svBrand").value = PRINTER_BRANDS.includes(U(p.Brand)) ? U(p.Brand) : "Other"; $("svModel").value = "";
+    const br = String(p.Brand || "HP").trim();   // older non-HP printers keep showing their own brand
+    $("svBrand").innerHTML = [...new Set(["HP", br])].map(b => `<option>${esc(b)}</option>`).join(""); $("svBrand").value = br; $("svModel").value = "";
     $("svFloor").value = p.Floor || ""; $("svDept").value = p.Clinic_Department || ""; $("svDetails").disabled = true;
     msg("svMsg", "warn", `This printer has already been registered. (S#No ${p.SNo})`, true);
   } else {
     svState = "new"; $("svDetails").disabled = false; $("svModel").value = ""; $("svFloor").value = ""; $("svDept").value = "";
-    msg("svMsg", "ok", "New printer — enter brand, model, floor and department.");
+    msg("svMsg", "ok", "New printer — choose the model, then enter floor and department.");
   }
   $("svModelBox").disabled = false; $("svModel").classList.add("hidden");
-  fillTModels(p ? p.Model : ""); fillItems();
+  const hintModel = svHint && !p ? svHint.models[0] : "";
+  fillTModels(p ? p.Model : hintModel); fillItems();
+  if (svHint) {   // tick the toner that was searched for, if this printer uses it
+    const cb = [...document.querySelectorAll("#svToners input")].find(x => codeKey(x.value) === svHint.code);
+    if (cb) { cb.checked = true; cb.closest(".toner").classList.add("on"); }
+    if (!p && svHint.models.length > 1) msg("svMsg", "ok", `New printer — model set to ${hintModel} from toner ${svHint.code} (change it to ${svHint.models.slice(1).join(" / ")} if needed). Enter floor and department.`);
+    else if (!p) msg("svMsg", "ok", `New printer — model set to ${hintModel} from toner ${svHint.code}. Enter floor and department.`);
+    svHint = null;
+  }
   const h = DB.logs.filter(l => U(l.Serial_No) === U(s)).sort((a, b) => (parseDMY(b.Log_Date, b.Log_Time) || 0) - (parseDMY(a.Log_Date, a.Log_Time) || 0)).slice(0, 6);
   $("svHistory").innerHTML = h.length ? h.map(l => `<li>${esc(l.Log_Date)} — ${esc(l.Toner_Item || "not from stock")}, reading ${esc(l.Printout_Reading)}${l.Spareparts_Replacement && l.Spareparts_Replacement !== "None" ? ", parts: " + esc(l.Spareparts_Replacement) : ""}${l.Ticket_ID ? ", ticket " + esc(l.Ticket_ID) : ""}${l.Requested_By ? ", req. by " + esc(l.Requested_By) : ""} · ${esc(l.Entered_By)}</li>`).join("") : `<li class="muted">No toner changes yet</li>`;
 }
@@ -1432,6 +1469,7 @@ $("svForm").onsubmit = async e => {
   e.preventDefault();
   if (!svState) { msg("svSaveMsg", "warn", "Check the serial number first."); return; }
   if (svState === "new" && (!$("svFloor").value || !$("svDept").value.trim())) { msg("svSaveMsg", "warn", "Enter the floor and department for the new printer."); return; }
+  if (!needTicket("svTicket", "svReq", "svSaveMsg")) return;
   if (!photos.svBefore || !photos.svAfter) { msg("svSaveMsg", "warn", `Toner ${!photos.svBefore && !photos.svAfter ? "Before and After photos are" : (!photos.svBefore ? "Before photo is" : "After photo is")} required.`); return; }
   if (!$("svTModel").value) { msg("svSaveMsg", "warn", "Select the printer model."); return; }
   const spec = $("svTModel").value === "__other" ? null : tonerSpec($("svTModel").value);
@@ -1491,7 +1529,7 @@ async function asLookup() {
       a.Assigned_User ? ["User", a.Assigned_User + (a.Employee_ID ? ` (Emp ID ${a.Employee_ID})` : "")] : null, a.Previous_User ? ["Previous user", a.Previous_User] : null,
       a.Assigned_User || a.ITC_Handover ? ["ITC handover", U(a.ITC_Handover) === "YES" ? "✔ Signed" : "Not yet"] : null, a.Hostname ? ["Hostname", a.Hostname] : null, a.IP_Address ? ["IP", a.IP_Address] : null, a.Extension ? ["Extension", a.Extension] : null,
       a.Warranty_End ? ["Warranty ends", isoToDMY(a.Warranty_End)] : null,
-      a.Ticket_ID ? ["Ticket ID", a.Ticket_ID] : null, a.Requested_By ? ["Req. name", a.Requested_By] : null].filter(Boolean);
+      a.Ticket_ID ? ["Ticket ID", a.Ticket_ID] : null, a.Requested_By ? ["Requester", a.Requested_By] : null].filter(Boolean);
     $("asDetails").innerHTML = rows.map(([k, v]) => `<dt>${k}</dt><dd>${esc(v)}</dd>`).join("") + (isUrl(a.Photo) ? `<dt>Photo</dt><dd><a href="${esc(a.Photo)}" target="_blank" rel="noopener">View</a></dd>` : "")
       + (isUrl(a.Handover_Form) ? `<dt>Handover form</dt><dd><a href="${esc(a.Handover_Form)}" target="_blank" rel="noopener">Open</a></dd>` : "");
     const h = DB.amoves.filter(m => U(m.Serial_No) === U(a.Serial_No)).sort((x, y) => (parseDMY(x.Move_Date, x.Move_Time) || 0) - (parseDMY(y.Move_Date, y.Move_Time) || 0));
@@ -1534,6 +1572,7 @@ $("asForm").onsubmit = async e => {
   if (asState !== "new" && asState !== "update") return;
   const serial = $("asSerial").value.trim();
   if (!$("asFloor").value || !$("asDept").value.trim() || !$("asModel").value.trim()) { msg("asMsg", "warn", "Model, floor and department are required."); return; }
+  if (!needTicket("asTicket", "asReq", "asMsg")) return;
   const t = $("asType").value, f = FIELDS[t] || [];
   const d = { serial, type: t, tag: $("asTag").value.trim(), brand: $("asBrand").value.trim(), model: $("asModel").value.trim(), floor: $("asFloor").value,
               dept: $("asDept").value.trim(), room: $("asRoom").value.trim(), status: $("asStatus").value, warranty: $("asWarranty").value, notes: $("asNotes").value.trim() };
@@ -1637,6 +1676,7 @@ $("kiForm").onsubmit = async e => {
   e.preventDefault();
   const user = $("kiUser").value.trim();
   if (!user || !$("kiFloor").value || !$("kiDept").value.trim()) { msg("kiMsg", "warn", "User name, floor and department are required."); return; }
+  if (!needTicket("kiRef", "kiReq", "kiMsg")) return;
   if (!docs.kiHandFile) { msg("kiMsg", "warn", "Attach the signed ITC handover form (PDF or photo)."); $("kiHandFile").closest(".handover").scrollIntoView({ behavior: "smooth", block: "center" }); return; }
   const bad = kiItems.find(i => i.isNew && !String(i.model).trim());
   if (bad) { msg("kiMsg", "warn", `Enter the model for the new item ${bad.serial}.`); return; }
@@ -1745,6 +1785,7 @@ $("mvSave").onclick = async () => {
   const d = { serial, reason, status: $("mvStatus").value, toFloor: $("mvFloor").value, toDept: $("mvDept").value.trim(), toRoom: $("mvRoom").value.trim(), newUser: $("mvUser").value.trim(),
               vendor: $("mvRepair").classList.contains("hidden") ? "" : $("mvVendor").value, vendorContact: $("mvContact").value.trim(), vendorPhone: $("mvPhone").value.trim(),
               vendorTicket: $("mvTicket").value.trim(), expectedBack: $("mvExpected").value, fault: $("mvFault").value.trim(), reference: $("mvRef").value.trim(), req: $("mvReq").value.trim() };
+  if (!needTicket("mvRef", "mvReq", "asMsg")) return;
   if (d.reason === "Handover to user" && !d.newUser) { msg("asMsg", "warn", "Enter the new user's name for a handover."); return; }
   if (d.newUser) { d.newUserEmp = $("mvEmp").value.trim(); d.itc = $("mvItc").checked ? "Yes" : "No"; }
   if ((d.newUser || d.reason === "Handover to user") && !docs.mvHandFile) { msg("asMsg", "warn", "Attach the signed ITC handover form (PDF or photo) for the new user."); window.scrollTo(0, 0); return; }
@@ -1792,9 +1833,19 @@ function setDir(dir) {
   stDir = dir; document.querySelectorAll("#stDir button").forEach(x => x.classList.toggle("on", x.dataset.d === dir));
   const out = dir === "OUT";
   $("stInBox").classList.toggle("hidden", out); $("stOutBox").classList.toggle("hidden", !out);
-  $("stRefLbl").textContent = out ? "Reference (helpdesk ticket / request No)" : "Reference (PO / delivery note)";
+  $("stRefLbl").innerHTML = out ? 'Ticket ID (helpdesk ticket / request No) <span class="req">*</span>' : "Reference (PO / delivery note)";
+  if (out) {   // suggest the printers / assets this item is for
+    const i = stockOf($("stCode").value), fits = i ? fitsFor(i) : [];
+    const list = DB.assets.filter(a => fits.some(f => (tonerSpec(a.Model) && tonerSpec(a.Model).model === f) || U(a.Model).includes(U(f)))).slice(0, 50);
+    $("stAssetList").innerHTML = list.map(a => `<option value="${esc(a.Serial_No)}">${esc([a.Model, a.Floor, a.Clinic_Department].filter(Boolean).join(" · "))}</option>`).join("");
+  }
   $("stRef").placeholder = out ? "e.g. Helpdesk #4471" : "e.g. PO-2026-118";
 }
+$("stAsset").addEventListener("change", () => {   // fill department and floor from the asset
+  const a = findAsset($("stAsset").value.trim()); if (!a) return;
+  if (!$("stIssDept").value.trim()) $("stIssDept").value = a.Clinic_Department || "";
+  if (!$("stIssFloor").value) $("stIssFloor").value = a.Floor || "";
+});
 document.querySelectorAll("#stDir button").forEach(b => b.onclick = () => { if (stState === "new" && b.dataset.d === "OUT") return; setDir(b.dataset.d); });
 function resetStock() {
   stEditCode = null; $("stQtyBox").classList.add("hidden"); $("stMove").classList.remove("hidden"); $("stEditCancel").classList.add("hidden"); $("stSave").textContent = "Save movement";
@@ -1870,7 +1921,13 @@ $("stForm").onsubmit = async e => {
   const qty = parseInt($("stQty").value, 10) || 0;
   if (qty < 1) { msg("stMsg", "warn", "Quantity must be at least 1."); return; }
   if (stState === "new" && !$("stName").value.trim()) { msg("stMsg", "warn", "Enter the item name."); return; }
-  if (stDir === "OUT" && !$("stIssDept").value.trim()) { msg("stMsg", "warn", "Enter the department it is issued to."); return; }
+  if (stDir === "OUT") {
+    const miss = [["stRef", "Ticket ID"], ["stIssDept", "department"], ["stRecv", "received by (staff name)"], ["stAsset", "asset serial No"]].filter(([id]) => !$(id).value.trim());
+    if (miss.length) { msg("stMsg", "warn", `Enter the ${miss.map(m => m[1]).join(", ")}.`); $(miss[0][0]).focus(); $(miss[0][0]).scrollIntoView({ behavior: "smooth", block: "center" }); return; }
+    const as = findAsset($("stAsset").value.trim());
+    if (!as && !confirm(`${$("stAsset").value.trim()} is not a registered asset. Issue anyway?`)) return;
+    if (as && !$("stIssDept").value.trim()) $("stIssDept").value = as.Clinic_Department || "";
+  }
   const i = stockOf($("stCode").value);
   if (stDir === "OUT" && i && qty > num(i.Qty_On_Hand) && !confirm(`Only ${num(i.Qty_On_Hand)} in stock. Issue ${qty} anyway?`)) return;
   const d = { code: $("stCode").value.trim(), name: $("stName").value.trim(), type: $("stType").value, brand: $("stBrand").value.trim(), models: $("stModels").value.trim(),
