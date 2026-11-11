@@ -260,6 +260,8 @@
   .ib{border:1px solid var(--line);background:#fff;border-radius:8px;padding:5px 9px;font:inherit;font-size:13px;cursor:pointer;color:var(--brand);margin-left:4px}
   .ib:hover{background:var(--brand2)} .ib.del{color:#b3261e} .ib.del:hover{background:#fdecea}
   @media(max-width:640px){#appRoot .lookup .btn span{display:none} #appRoot .lookup .btn.cam,#appRoot .lookup .btn.att{padding:0 12px;font-size:18px}}
+  .svfoot{margin-top:20px;text-align:center}
+  .svfoot .btn{margin-top:0}
   .people{display:flex;flex-direction:column;gap:10px;margin-top:8px}
   .person{border:1px solid var(--line);border-radius:10px;padding:10px 12px 12px;background:#f7f8fc;position:relative}
   .person .ptop{display:flex;align-items:center;gap:8px}
@@ -469,6 +471,16 @@
           <div><label>Clinic / Department</label><input id="svDept" list="deptList" placeholder="Type to search…"></div>
         </div>
       </fieldset>
+      <fieldset id="svJob" disabled>
+        <div class="two">
+          <div><label>Ticket ID</label><input id="svTicket" placeholder="e.g. Helpdesk #4471"></div>
+          <div><label>Req. name (requested by)</label><input id="svReq" placeholder="e.g. Nurse Mariam, LDR"></div>
+        </div>
+        <div class="two">
+          <div><label>Printout reading (page counter)</label><input type="number" id="svReading" inputmode="numeric" min="0" step="1" placeholder="e.g. 45210"></div>
+          <div><label>Spare parts replacement</label><input id="svParts" placeholder="None, or parts replaced"></div>
+        </div>
+      </fieldset>
     </div>
     <div>
       <h2>Toner change</h2>
@@ -485,15 +497,13 @@
           <div><label>Toner (Before) photo <span class="req">*</span></label><input type="file" id="svBefore" accept="image/*" capture="environment"><img id="svBeforeImg" class="thumb" alt="Toner before"></div>
           <div><label>Toner (After) photo <span class="req">*</span></label><input type="file" id="svAfter" accept="image/*" capture="environment"><img id="svAfterImg" class="thumb" alt="Toner after"></div>
         </div>
-        <div class="two">
-          <div><label>Printout reading (page counter)</label><input type="number" id="svReading" inputmode="numeric" min="0" step="1" placeholder="e.g. 45210"></div>
-          <div><label>Spare parts replacement</label><input id="svParts" placeholder="None, or parts replaced"></div>
-        </div>
-        <button type="submit" class="btn" id="svSave">Submit</button>
       </fieldset>
-      <div id="svSaveMsg"></div>
       <h3>Last toner changes for this printer</h3>
       <ul class="history" id="svHistory"><li class="muted">Scan a printer to see its history</li></ul>
+      <div class="svfoot">
+        <button type="submit" class="btn" id="svSave" disabled>Submit</button>
+        <div id="svSaveMsg"></div>
+      </div>
     </div>
    </div>
   </form>
@@ -1057,7 +1067,7 @@ function applyLocal(action, d, replay) {
   if (action === "service") {
     let a = asset(d.serial);
     if (!a) { a = { SNo: "…", Serial_No: d.serial, Asset_Type: "Printer", Brand: d.brand, Model: d.model, Floor: d.floor, Clinic_Department: d.dept, Status: "In use", Registered_On: today }; DB.assets.push(a); }
-    DB.logs.unshift({ Log_ID: "…", Log_Date: today, Log_Time: time, Serial_No: d.serial, Printer_Model: d.model || a.Model, Clinic_Department: a.Clinic_Department, Toner_Item: d.item, Printout_Reading: d.reading, Spareparts_Replacement: d.parts || "None", Entered_By: me.name });
+    DB.logs.unshift({ Log_ID: "…", Log_Date: today, Log_Time: time, Serial_No: d.serial, Printer_Model: d.model || a.Model, Clinic_Department: a.Clinic_Department, Toner_Item: d.item, Printout_Reading: d.reading, Spareparts_Replacement: d.parts || "None", Ticket_ID: d.ticket || "", Requested_By: d.req || "", Entered_By: me.name });
     (d.items || (d.item ? [d.item] : [])).forEach(code => {
       const i = item(code);
       if (i) { i.Qty_On_Hand = num(i.Qty_On_Hand) - 1; DB.smoves.unshift({ Move_ID: "…", Move_Date: today, Move_Time: time, Item_Code: code, Item_Name: i.Item_Name, Direction: "OUT", Qty: 1, Issued_Dept: a.Clinic_Department, Asset_Serial: d.serial, Entered_By: me.name }); }
@@ -1375,7 +1385,7 @@ function showToners() {
 function resetService() {
   $("svForm").reset(); $("svBy").value = me.name; $("svDate").value = ddmmyyyy(new Date());
   $("svBrand").value = "HP"; $("svModel").value = ""; $("svModel").classList.add("hidden");
-  $("svDetails").disabled = true; $("svModelBox").disabled = true; $("svMaint").disabled = true; $("svSerial").readOnly = false;
+  $("svDetails").disabled = true; $("svModelBox").disabled = true; $("svMaint").disabled = true; $("svJob").disabled = true; $("svSave").disabled = true; $("svSerial").readOnly = false;
   clearPhoto("svBefore", "svBeforeImg"); clearPhoto("svAfter", "svAfterImg");
   svState = null; msg("svMsg"); fillItems(); fillTModels("");
   $("svHistory").innerHTML = `<li class="muted">Scan a printer to see its history</li>`;
@@ -1402,7 +1412,7 @@ async function svLookup() {
   try { await load(); } catch (e) { msg("svMsg", "err", "Could not check: " + e.message); return; }
   const p = DB.assets.find(a => U(a.Serial_No) === U(s));
   if (p && p.Asset_Type && p.Asset_Type !== "Printer") { msg("svMsg", "warn", `${s} is a ${String(p.Asset_Type).toLowerCase()}, not a printer.`); return; }
-  $("svSerial").readOnly = true; $("svMaint").disabled = false;
+  $("svSerial").readOnly = true; $("svMaint").disabled = false; $("svJob").disabled = false; $("svSave").disabled = false;
   if (p) {
     svState = "existing";
     $("svBrand").value = PRINTER_BRANDS.includes(U(p.Brand)) ? U(p.Brand) : "Other"; $("svModel").value = "";
@@ -1415,7 +1425,7 @@ async function svLookup() {
   $("svModelBox").disabled = false; $("svModel").classList.add("hidden");
   fillTModels(p ? p.Model : ""); fillItems();
   const h = DB.logs.filter(l => U(l.Serial_No) === U(s)).sort((a, b) => (parseDMY(b.Log_Date, b.Log_Time) || 0) - (parseDMY(a.Log_Date, a.Log_Time) || 0)).slice(0, 6);
-  $("svHistory").innerHTML = h.length ? h.map(l => `<li>${esc(l.Log_Date)} — ${esc(l.Toner_Item || "not from stock")}, reading ${esc(l.Printout_Reading)}${l.Spareparts_Replacement && l.Spareparts_Replacement !== "None" ? ", parts: " + esc(l.Spareparts_Replacement) : ""} · ${esc(l.Entered_By)}</li>`).join("") : `<li class="muted">No toner changes yet</li>`;
+  $("svHistory").innerHTML = h.length ? h.map(l => `<li>${esc(l.Log_Date)} — ${esc(l.Toner_Item || "not from stock")}, reading ${esc(l.Printout_Reading)}${l.Spareparts_Replacement && l.Spareparts_Replacement !== "None" ? ", parts: " + esc(l.Spareparts_Replacement) : ""}${l.Ticket_ID ? ", ticket " + esc(l.Ticket_ID) : ""}${l.Requested_By ? ", req. by " + esc(l.Requested_By) : ""} · ${esc(l.Entered_By)}</li>`).join("") : `<li class="muted">No toner changes yet</li>`;
 }
 $("svCheck").onclick = svLookup; enterKey("svSerial", svLookup); setupLookup("svSerial", svSuggest, svLookup);
 $("svForm").onsubmit = async e => {
@@ -1433,7 +1443,8 @@ $("svForm").onsubmit = async e => {
   const model = svModelNow();
   if (!model) { msg("svSaveMsg", "warn", "Type the printer model."); return; }
   const d = { serial, brand: $("svBrand").value, model, floor: $("svFloor").value, dept: $("svDept").value.trim(),
-              items, item: items.join(", "), reading: $("svReading").value || "0", parts: $("svParts").value.trim() || "None" };
+              items, item: items.join(", "), reading: $("svReading").value || "0", parts: $("svParts").value.trim() || "None",
+              ticket: $("svTicket").value.trim(), req: $("svReq").value.trim() };
   $("svSave").disabled = true; msg("svSaveMsg", "warn", "Sending…");
   try {
     await write("service", d, [{ slot: "before", name: `${base}_before.jpg`, base64: photos.svBefore }, { slot: "after", name: `${base}_after.jpg`, base64: photos.svAfter }]);
@@ -1441,7 +1452,7 @@ $("svForm").onsubmit = async e => {
     msg("svSaveMsg", "ok", `Saved ${serial}${items.length ? ` — ${items.join(", ")} taken from stock` : ""}. Ready for the next printer.`);
     setTimeout(() => msg("svSaveMsg"), 7000);
   } catch (err) { msg("svSaveMsg", "err", "Not sent: " + err.message + ". Nothing was lost — try again."); }
-  finally { $("svSave").disabled = false; }
+  finally { $("svSave").disabled = !svState; }
 };
 
 /* ================= ASSETS ================= */
