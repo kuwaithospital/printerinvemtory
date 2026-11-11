@@ -272,6 +272,15 @@
   .lkx{position:absolute;right:6px;top:50%;transform:translateY(-50%);border:1px solid var(--line);background:#fff;color:#b3261e;border-radius:16px;padding:4px 10px;font:600 13px "Fira Sans",system-ui,sans-serif;cursor:pointer;white-space:nowrap}
   .lkx:hover{background:#fdecea;border-color:#f3b9b4}
   .lkin input:placeholder-shown + .lkx{display:none}
+  .gsearch{position:relative}
+  #appRoot .gsearch input{padding-right:40px}
+  .gqx{position:absolute;right:24px;top:50%;transform:translateY(-50%);border:0;background:none;color:#fff;font-size:22px;cursor:pointer;opacity:.8;padding:0 6px}
+  .results h4{display:flex;align-items:center;gap:6px}
+  .results h4 b{background:var(--brand2);color:var(--brand);border-radius:8px;padding:0 6px;font-size:11px}
+  .results h4 .gall{margin-left:auto;text-transform:none;letter-spacing:0;font-weight:600;color:var(--brand);font-size:12px}
+  .results .gtot{padding:8px 12px;font-size:12px;color:var(--muted);border-bottom:1px solid var(--line)}
+  .results mark{background:#ffe58a}
+  @media(min-width:900px){.gqx{right:8px}}
   .people{display:flex;flex-direction:column;gap:10px;margin-top:8px}
   .person{border:1px solid var(--line);border-radius:10px;padding:10px 12px 12px;background:#f7f8fc;position:relative}
   .person .ptop{display:flex;align-items:center;gap:8px}
@@ -443,7 +452,7 @@
       <button data-view="reports" class="admin-only hidden">Reports</button>
     </nav>
     <div class="gsearch">
-      <input id="gq" placeholder="Search everything: serial, tag, user, IP, department, part No…" autocomplete="off">
+      <input id="gq" placeholder="Search everything: serial, toner No, model, user, Emp ID, ticket, dept, vendor…" autocomplete="off" enterkeyhint="search"><button type="button" id="gqx" class="gqx hidden" title="Clear">×</button>
       <div id="gres" class="results hidden"></div>
     </div>
   </div>
@@ -1228,31 +1237,61 @@ function setupForms() {
 
 /* ---------------- global search ---------------- */
 function gsearch() {
-  const q = $("gq").value.trim().toLowerCase();
+  const raw = $("gq").value.trim(), q = raw.toLowerCase();
+  $("gqx").classList.toggle("hidden", !raw);
   if (q.length < 2) { $("gres").classList.add("hidden"); return; }
-  const has = (...v) => v.some(x => String(x ?? "").toLowerCase().includes(q));
-  const a = DB.assets.filter(x => has(x.Serial_No, x.Asset_Tag, x.Model, x.Brand, x.Clinic_Department, x.Room, x.Assigned_User, x.Employee_ID, x.Previous_User, x.IP_Address, x.Hostname, x.MAC_Address, x.Extension, x.Asset_Type, x.SNo)).slice(0, 8);
-  const s = DB.stock.filter(x => has(x.Item_Code, x.Item_Name, fitsFor(x).join(" "), x.Item_Type, x.Brand)).slice(0, 5);
-  const v = DB.vendors.filter(x => has(x.Vendor_Name, x.Contact_Name, x.Phone, x.Email, x.Categories, x.Contacts)).slice(0, 5);
-  const l = DB.logs.filter(x => has(x.Serial_No, x.Toner_Item, x.Entered_By, x.Spareparts_Replacement)).slice(0, 5);
+  const w = qWords(raw), m = (...v) => qMatch(w, ...v);     // every word must match (any order)
+  const A = DB.assets.filter(x => m(x.SNo, x.Serial_No, x.Asset_Tag, x.Asset_Type, x.Brand, x.Model, x.Floor, x.Clinic_Department, x.Room, x.Status, x.Assigned_User, x.Employee_ID,
+              x.Previous_User, x.Hostname, x.IP_Address, x.MAC_Address, x.Extension, x.Connected_To, x.Ticket_ID, x.Requested_By, x.Notes));
+  const byToner = printersForToner(raw).filter(x => !A.includes(x));
+  const S = DB.stock.filter(x => m(x.Item_Code, codeKey(x.Item_Code), x.Item_Name, x.Item_Type, x.Brand, fitsFor(x).join(" "), x.Store_Location));
+  const known = new Set(DB.stock.map(i => codeKey(i.Item_Code)));
+  const TL = PRINTER_TONERS.flatMap(t => t.toners.map(([color, c]) => ({ color, c, model: t.model }))).filter(x => !known.has(codeKey(x.c)) && m(x.c, x.model, x.color))
+              .filter((x, n, arr) => arr.findIndex(y => y.c === x.c) === n);
+  const L = DB.logs.filter(x => m(x.Serial_No, x.Printer_Model, x.Clinic_Department, x.Toner_Item, x.Entered_By, x.Spareparts_Replacement, x.Ticket_ID, x.Requested_By, x.Log_Date));
+  const SM = DB.smoves.filter(x => m(x.Item_Code, x.Item_Name, x.Direction, x.Supplier, x.Issued_Dept, x.Issued_Floor, x.Received_By, x.Asset_Serial, x.Reference, x.Entered_By, x.Move_Date));
+  const AM = DB.amoves.filter(x => m(x.Serial_No, x.Asset_Type, x.From_Location, x.To_Floor, x.To_Dept, x.To_Room, x.New_User, x.New_User_Emp_ID, x.Previous_User, x.Reason, x.Status_After,
+              x.Vendor, x.Vendor_Ticket, x.Fault, x.Reference, x.Requested_By, x.Entered_By, x.Move_Date));
+  const V = DB.vendors.filter(x => m(x.Vendor_Name, x.Contact_Name, x.Phone, x.Email, vCats(x).join(" "), x.Contacts, x.Notes));
+  const total = A.length + byToner.length + S.length + TL.length + L.length + SM.length + AM.length + V.length;
+  const btn = (go, k, icon, title, sub, extra = "") => `<button type="button" data-go="${go}" data-k="${esc(k)}"${extra}><span>${icon}</span><span>${hl(title, w)}<small>${hl(sub, w)}</small></span></button>`;
+  const sec = (title, list, n, max, render, all) => list.length ? `<h4>${esc(title)} <b>${n}</b>${all && n > max ? `<a href="#" class="gall" data-all="${all}">Show all ${n} →</a>` : ""}</h4>` + list.slice(0, max).map(render).join("") : "";
+  const sub = a => [[a.Brand, a.Model].filter(Boolean).join(" "), [a.Floor, a.Clinic_Department, a.Room].filter(Boolean).join(" · "), a.Assigned_User ? a.Assigned_User + (a.Employee_ID ? " #" + a.Employee_ID : "") : "", a.IP_Address].filter(Boolean).join(" — ");
   let h = "";
-  if (a.length) h += `<h4>Assets</h4>` + a.map(x => `<button type="button" data-go="assets" data-k="${esc(x.Serial_No)}"><span>${ICON[x.Asset_Type] || "📦"}</span><span>${esc(x.Asset_Type)} · ${esc(x.Serial_No)}${x.Asset_Tag ? " · " + esc(x.Asset_Tag) : ""}<small>${esc(x.Brand)} ${esc(x.Model)} — ${esc(x.Floor)}, ${esc(x.Clinic_Department)}${x.Assigned_User ? " — " + esc(x.Assigned_User) : ""}${x.IP_Address ? " — " + esc(x.IP_Address) : ""}</small></span></button>`).join("");
-  if (s.length) h += `<h4>Stock</h4>` + s.map(x => `<button type="button" data-go="stock" data-k="${esc(x.Item_Code)}"><span>📦</span><span>${esc(x.Item_Code)} · ${esc(x.Item_Name)}<small>${num(x.Qty_On_Hand)} in stock — ${esc(x.Store_Location)}</small></span></button>`).join("");
-  if (v.length) h += `<h4>Vendors</h4>` + v.map(x => `<button type="button" data-go="vendors" data-k="${esc(x.Vendor_Name)}"><span>🏢</span><span>${esc(x.Vendor_Name)}<small>${esc(vCats(x).join(", "))} — ${esc(x.Contact_Name)} — ${esc(x.Phone)}</small></span></button>`).join("");
-  if (l.length) h += `<h4>Toner service log</h4>` + l.map(x => `<button type="button" data-go="service" data-k="${esc(x.Serial_No)}"><span>🧾</span><span>${esc(x.Log_Date)} · ${esc(x.Serial_No)}<small>${esc(x.Toner_Item || "not from stock")} — by ${esc(x.Entered_By)} — reading ${esc(x.Printout_Reading)}</small></span></button>`).join("");
-  $("gres").innerHTML = h || `<div class="none">No matches for “${esc(q)}”</div>`;
+  h += sec("Assets", A, A.length, 8, x => btn("assets", x.Serial_No, ICON[x.Asset_Type] || "📦", `${x.Asset_Type || "Asset"} · ${x.Serial_No}${x.Asset_Tag ? " · " + x.Asset_Tag : ""}`, sub(x)), "assets");
+  h += sec("Printers using this toner", byToner, byToner.length, 6, x => btn("service", x.Serial_No, "🖨️", `${x.Serial_No} · ${x.Model}`, [x.Floor, x.Clinic_Department].filter(Boolean).join(" · ")));
+  h += sec("Stock", S, S.length, 6, x => btn("stock", x.Item_Code, "📦", `${x.Item_Code} · ${x.Item_Name}`, `${num(x.Qty_On_Hand)} in stock${x.Store_Location ? " — " + x.Store_Location : ""}${fitsFor(x).length ? " — for " + fitsFor(x).join(", ") : ""}`), "stock");
+  h += sec("Toner list — not in stock yet", TL, TL.length, 4, x => btn("stock", x.c, "🆕", `${x.c} · ${x.color} toner`, "for " + tonerInfo(x.c).models.join(", ")));
+  h += sec("Toner service log", L, L.length, 5, x => btn("service", x.Serial_No, "🧾", `${x.Log_Date} · ${x.Serial_No} · ${x.Toner_Item || "not from stock"}`, [x.Clinic_Department, x.Ticket_ID, x.Requested_By ? "req. " + x.Requested_By : "", "by " + x.Entered_By].filter(Boolean).join(" — ")));
+  h += sec("Stock movements", SM, SM.length, 5, x => btn("stock", x.Item_Code, x.Direction === "OUT" ? "📤" : x.Direction === "IN" ? "📥" : "✏️", `${x.Move_Date} · ${x.Direction} ${x.Qty} × ${x.Item_Name || x.Item_Code}`,
+        [x.Direction === "OUT" ? [x.Received_By, x.Issued_Dept].filter(Boolean).join(", ") : x.Supplier, x.Asset_Serial ? "asset " + x.Asset_Serial : "", x.Reference].filter(Boolean).join(" — ")), "stockmoves");
+  h += sec("Asset movements", AM, AM.length, 5, x => btn("assets", x.Serial_No, "🔁", `${x.Move_Date} · ${x.Serial_No} · ${x.Reason}`, [[x.To_Floor, x.To_Dept].filter(Boolean).join(" · "), x.New_User ? "to " + x.New_User : "", x.Vendor, x.Reference].filter(Boolean).join(" — ")));
+  h += sec("Vendors", V, V.length, 5, x => btn("vendors", x.Vendor_Name, "🏢", x.Vendor_Name, [vCats(x).join(", "), x.Contact_Name, x.Phone].filter(Boolean).join(" — ")));
+  $("gres").innerHTML = (h ? `<div class="gtot">${total} result${total === 1 ? "" : "s"} for “${esc(raw)}”</div>` + h : `<div class="none">No matches for “${esc(raw)}”</div>`);
   $("gres").classList.remove("hidden");
-  document.querySelectorAll("#gres button").forEach(b => b.onclick = () => {
-    $("gres").classList.add("hidden"); $("gq").value = "";
-    const k = b.dataset.k;
-    if (b.dataset.go === "assets") { show("assets"); $("asSerial").value = k; asLookup(); }
-    if (b.dataset.go === "stock") { show("stock"); $("stCode").value = k; stLookup(); }
-    if (b.dataset.go === "service") { show("service"); $("svSerial").value = k; svLookup(); }
-    if (b.dataset.go === "vendors") { show("vendors"); editVendor(k); }
+  const go = (where, k) => {
+    $("gres").classList.add("hidden"); $("gq").value = ""; $("gqx").classList.add("hidden");
+    if (where === "assets") { show("assets"); $("asSerial").value = k; asLookup(); }
+    if (where === "stock") { show("stock"); resetStock(); $("stCode").value = k; stLookup(); }
+    if (where === "service") { show("service"); resetService(); $("svSerial").value = k; svLookup(); }
+    if (where === "vendors") { show("vendors"); editVendor(k); }
     window.scrollTo(0, 0);
+  };
+  document.querySelectorAll("#gres button").forEach(b => b.onclick = () => go(b.dataset.go, b.dataset.k));
+  document.querySelectorAll("#gres .gall").forEach(a => a.onclick = e => {   // show the full list in that tab's table, filtered
+    e.preventDefault(); $("gres").classList.add("hidden");
+    const t = a.dataset.all;
+    if (t === "assets") { show("assets"); $("asQ").value = raw; $("asQx").classList.remove("hidden"); renderAssets(); $("asQ").scrollIntoView({ block: "start" }); }
+    else { show("stock"); $("stQ").value = raw; $("stQx").classList.remove("hidden"); renderStock(); $("stQ").scrollIntoView({ block: "start" }); }
+    window.scrollBy(0, -140);
   });
 }
 $("gq").oninput = gsearch; $("gq").onfocus = gsearch;
+$("gq").addEventListener("keydown", e => {
+  if (e.key === "Enter") { const f = $("gres").querySelector("button"); if (f) { e.preventDefault(); f.click(); } }
+  if (e.key === "Escape") { $("gres").classList.add("hidden"); $("gq").blur(); }
+});
+$("gqx").onclick = () => { $("gq").value = ""; $("gqx").classList.add("hidden"); $("gres").classList.add("hidden"); $("gq").focus(); };
 document.addEventListener("click", e => { if (!e.target.closest(".gsearch")) $("gres").classList.add("hidden"); });
 
 /* ---------------- barcode camera ---------------- */
