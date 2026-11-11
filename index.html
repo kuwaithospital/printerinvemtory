@@ -698,6 +698,7 @@
      </div>
     </form>
   </details>
+  <div id="bulkSlotA"></div>
   <details class="card bulk" id="bulk">
     <summary><h2>📦 Bulk register — same model, many serials</h2><span class="tog"></span></summary>
     <form id="bkForm" autocomplete="off">
@@ -721,7 +722,10 @@
           <div><label>Status</label><select id="bkStatus"><option>In store (spare)</option><option>In use</option><option>Under repair</option><option>Retired</option></select></div>
           <div><label>Warranty ends</label><input type="date" id="bkWarranty"></div>
         </div>
-        <label>Supplier / PO / delivery note (saved in Notes)</label><input id="bkNotes" placeholder="e.g. Sahara — PO 2026-118">
+        <div class="two">
+          <div><label>Supplier</label><select id="bkSupplier"></select></div>
+          <div><label>PO / delivery note</label><input id="bkNotes" placeholder="e.g. PO 2026-118"></div>
+        </div>
       </div>
       <div>
         <h3>Serial numbers</h3>
@@ -751,6 +755,7 @@
    <div class="grid">
     <div>
       <h2>Receive or issue stock</h2>
+      <p class="muted" style="font-size:13px;margin:0 0 6px">Received printers, laptops, PCs… with serial numbers (e.g. 10 of one model)? Use <a href="#bulk" class="bkGo">📦 Bulk register</a> below — each serial becomes an asset.</p>
       <label>Item code <span class="muted">— part No, barcode, item name or printer model</span></label>
       <div class="lookup">
         <div class="row"><input id="stCode" placeholder="Scan or type part No, name or printer model" autocomplete="off"><button type="button" class="btn secondary cam" data-cam="stCode" title="Scan with camera">📷 <span>Camera</span></button><label class="btn secondary att" for="stCodeFile" title="Read a barcode from a photo">📎 <span>Attach</span></label><input type="file" id="stCodeFile" accept="image/*" class="hidefile"></div>
@@ -800,6 +805,7 @@
     </div>
    </div>
   </form>
+  <div id="bulkSlotS"></div>
   <div class="card">
     <h2>Consumables stock <span class="muted" id="stCount"></span></h2>
     <div class="tsearch"><input id="stQ" type="text" enterkeyhint="search" placeholder="Search stock: item, code, model, brand, user, Emp ID, dept, supplier, reference…"><button type="button" id="stQx" class="hidden" title="Clear">×</button></div>
@@ -1175,6 +1181,9 @@ function show(view) {
   VIEWS.forEach(v => $(v).classList.toggle("hidden", v !== view));
   document.querySelectorAll(".topbar nav button").forEach(b => b.classList.toggle("active", b.dataset.view === view));
   stopScanner();
+  // the Bulk register card is shared by the Assets and Stock tabs
+  const slot = view === "stock" ? $("bulkSlotS") : view === "assets" ? $("bulkSlotA") : null;
+  if (slot && $("bulk").previousElementSibling !== slot) slot.after($("bulk"));
   if (location.hash !== "#/" + view) history.pushState(null, "", "#/" + view);
   window.scrollTo(0, 0);
   renderAll();
@@ -1721,12 +1730,13 @@ function bkReset() {
   $("bkForm").reset(); $("bkChips").innerHTML = ""; bkApplyType(); bkRender();
 }
 function bkApplyType() { $("bkBrandList").innerHTML = (BRANDS[$("bkType").value] || []).map(b => `<option value="${b}">`).join(""); }
-$("bkType").onchange = bkApplyType;
+$("bkType").onchange = () => { bkApplyType(); fillVendorSelects(); };
 $("bkSerials").oninput = bkRender; $("bkQty").oninput = bkRender;
 bindMultiAttach("bkSerials", t => { if (bkParse().map(U).includes(U(t))) return; const v = $("bkSerials").value.replace(/\s+$/, ""); $("bkSerials").value = (v ? v + "\n" : "") + t + "\n"; }, bkRender);
 $("bkSerials").addEventListener("keydown", e => {        // USB scanners send Enter after each code: keep it as a new line
   if (e.key === "Enter") setTimeout(bkRender, 0);
 });
+document.querySelectorAll(".bkGo").forEach(a => a.onclick = e => { e.preventDefault(); $("bulk").open = true; $("bulk").scrollIntoView({ behavior: "smooth" }); setTimeout(() => $("bkSerials").focus(), 400); });
 $("bkJump").onclick = e => { e.preventDefault(); $("bulk").open = true; $("bulk").scrollIntoView({ behavior: "smooth" }); setTimeout(() => $("bkSerials").focus(), 400); };
 $("bkForm").onsubmit = async e => {
   e.preventDefault();
@@ -1735,7 +1745,8 @@ $("bkForm").onsubmit = async e => {
   if (!$("bkModel").value.trim() || !$("bkFloor").value || !$("bkDept").value.trim()) { msg("bkMsg", "warn", "Model, floor and department are required."); return; }
   const seen = new Set(), serials = bkParse().filter(x => { const k = U(x); if (seen.has(k) || findAsset(x)) return false; seen.add(k); return true; });
   const d = { serials, type: $("bkType").value, brand: $("bkBrand").value.trim(), model: $("bkModel").value.trim(), floor: $("bkFloor").value,
-              dept: $("bkDept").value.trim(), room: $("bkRoom").value.trim(), status: $("bkStatus").value, warranty: $("bkWarranty").value, notes: $("bkNotes").value.trim() };
+              dept: $("bkDept").value.trim(), room: $("bkRoom").value.trim(), status: $("bkStatus").value, warranty: $("bkWarranty").value,
+              notes: [$("bkSupplier").value ? "Supplier: " + $("bkSupplier").value : "", $("bkNotes").value.trim()].filter(Boolean).join(" · ") };
   if (!confirm(`Register ${serials.length} × ${d.brand} ${d.model} (${d.type}) in ${d.dept}?`)) return;
   $("bkSave").disabled = true; msg("bkMsg", "warn", "Sending…");
   try {
@@ -1753,7 +1764,7 @@ function fillVendorSelects() {
     $(sel).innerHTML = `<option value="">Select vendor…</option>` + list.map(v => `<option value="${esc(v.Vendor_Name)}">${esc(v.Vendor_Name)}${c && vCats(v).includes(c) ? ` ✓ ${esc(c)}` : ""}</option>`).join("");
     if (keep) $(sel).value = keep;
   };
-  opts("mvVendor", cat); opts("stVendor", "Consumables");
+  opts("mvVendor", cat); opts("stVendor", "Consumables"); if ($("bkSupplier")) opts("bkSupplier", CAT_OF($("bkType").value));
 }
 function mvHandToggle() {
   const show = $("mvUser").value.trim() !== "" || $("mvReason").value === "Handover to user";
