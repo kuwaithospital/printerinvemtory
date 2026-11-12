@@ -304,6 +304,23 @@
   .wcbox{background:#fff;border-radius:14px;padding:14px;max-width:760px;width:100%}
   .wcbox video{width:100%;border-radius:10px;background:#000;max-height:70vh}
   .wcbtns{display:flex;gap:10px;margin-top:10px}.wcbtns .btn{margin:0}
+  #stTable tr.open td{background:#eef0fa}
+  tr.stdet>td{padding:0;background:#f7f8fc}
+  .stdbox{padding:14px 16px 18px;border-left:4px solid var(--brand)}
+  .stdhead{display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;align-items:flex-start}
+  .stdhead b{font-size:15px}.stdhead small{display:block;color:var(--muted);font-size:12px;margin-top:2px}
+  .stdbtns{display:flex;gap:8px;flex-wrap:wrap}
+  .stdstats{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;margin:12px 0}
+  .stdstats div{background:#fff;border:1px solid var(--line);border-radius:10px;padding:8px 12px}
+  .stdstats b{display:block;font-size:20px;color:var(--brand)}.stdstats span{font-size:12px;color:var(--muted)}
+  .stdbox h4{margin:14px 0 6px;font-size:12px;letter-spacing:.05em;text-transform:uppercase;color:var(--muted)}
+  .vcards{display:flex;gap:8px;flex-wrap:wrap}
+  .vcard{background:#fff;border:1px solid var(--line);border-radius:10px;padding:8px 12px;min-width:180px}
+  .vcard b{display:block}.vcard span{font-size:13px}.vcard small{display:block;color:var(--muted);font-size:12px}
+  table.mini{background:#fff;border:1px solid var(--line);border-radius:8px;font-size:13px}
+  table.mini th{position:static;background:#eef1f5}
+  table.mini td:nth-child(2){text-align:right;font-weight:600}
+  @media(max-width:640px){.stdstats{grid-template-columns:repeat(2,minmax(0,1fr))}}
   .people{display:flex;flex-direction:column;gap:10px;margin-top:8px}
   .person{border:1px solid var(--line);border-radius:10px;padding:10px 12px 12px;background:#f7f8fc;position:relative}
   .person .ptop{display:flex;align-items:center;gap:8px}
@@ -2039,7 +2056,7 @@ function renderAssets(hit) {
 }
 
 /* ================= STOCK ================= */
-let stState = null, stDir = "IN", stFilter = "All", stFix = null;
+let stState = null, stDir = "IN", stFilter = "All", stFix = null, stOpen = null;
 function setDir(dir) {
   stDir = dir; document.querySelectorAll("#stDir button").forEach(x => x.classList.toggle("on", x.dataset.d === dir));
   const out = dir === "OUT";
@@ -2181,7 +2198,37 @@ function renderStock(hit) {
     : `<tr><td colspan="8" class="muted">${words.length ? `No stock items match “${esc($("stQ").value)}”.` : "No items yet — scan a cartridge's part number above and receive it."}</td></tr>`);
   document.querySelectorAll("#stTable [data-ed]").forEach(b => b.onclick = e => { e.stopPropagation(); stEdit(b.dataset.ed); });
   document.querySelectorAll("#stTable [data-del]").forEach(b => b.onclick = e => { e.stopPropagation(); stDelete(b.dataset.del); });
-  document.querySelectorAll("#stTable tr.click").forEach(tr => tr.onclick = () => { resetStock(); $("stCode").value = tr.dataset.c; stLookup(); window.scrollTo(0, 0); });
+  document.querySelectorAll("#stTable tr.click").forEach(tr => tr.onclick = e => { if (e.target.closest("button,a")) return; stOpen = stOpen === tr.dataset.c ? null : tr.dataset.c; renderStock(); });
+  if (stOpen) {   // purchase & issue history under the clicked row
+    const tr = [...document.querySelectorAll("#stTable tr.click")].find(r => r.dataset.c === stOpen);
+    if (tr) { tr.classList.add("open"); tr.insertAdjacentHTML("afterend", `<tr class="stdet"><td colspan="${tr.children.length}">${stockDetail(stOpen)}</td></tr>`);
+      const d = tr.nextElementSibling;
+      d.querySelector("[data-use]").onclick = () => { resetStock(); $("stCode").value = stOpen; stLookup(); window.scrollTo(0, 0); };
+      d.querySelector("[data-close]").onclick = () => { stOpen = null; renderStock(); }; }
+  }
+}
+/* everything about one stock item: who we bought it from, when, and where it went */
+function stockDetail(code) {
+  const i = stockOf(code) || {}, k = codeKey(code);
+  const mv = DB.smoves.filter(m => codeKey(m.Item_Code) === k).sort((a, b) => (parseDMY(b.Move_Date, b.Move_Time) || 0) - (parseDMY(a.Move_Date, a.Move_Time) || 0));
+  const ins = mv.filter(m => m.Direction === "IN"), outs = mv.filter(m => m.Direction === "OUT"), adj = mv.filter(m => m.Direction !== "IN" && m.Direction !== "OUT");
+  const sum = a => a.reduce((t, m) => t + num(m.Qty), 0);
+  const byV = {}; ins.forEach(m => { const v = m.Supplier || "Supplier not recorded"; (byV[v] = byV[v] || { n: 0, q: 0, last: m.Move_Date }).n++; byV[v].q += num(m.Qty); });
+  const vend = Object.entries(byV).sort((a, b) => b[1].q - a[1].q).map(([v, x]) => {
+    const vr = DB.vendors.find(y => U(y.Vendor_Name) === U(v)), ph = vr && vr.Phone ? ` · <a href="tel:${esc(String(vr.Phone).replace(/\s/g, ""))}">${esc(vr.Phone)}</a>` : "";
+    return `<div class="vcard"><b>${esc(v)}</b><span>${x.q} unit${x.q === 1 ? "" : "s"} in ${x.n} purchase${x.n === 1 ? "" : "s"}</span><small>last ${esc(x.last)}${ph}</small></div>`; }).join("");
+  const row = (m, cells) => `<tr><td>${esc(m.Move_Date)} <span class="muted">${esc(m.Move_Time || "")}</span></td>${cells.map(c => `<td>${c}</td>`).join("")}</tr>`;
+  const inT = ins.length ? `<table class="mini"><tr><th>Date</th><th class="num">Qty</th><th>Vendor</th><th>PO / delivery note</th><th>Received by</th></tr>${ins.map(m => row(m, [`<span class="num">${esc(m.Qty)}</span>`, esc(m.Supplier || "—"), esc(m.Reference || "—"), esc(m.Entered_By)])).join("")}</table>` : `<p class="muted">No purchases recorded yet.</p>`;
+  const outT = outs.length ? `<table class="mini"><tr><th>Date</th><th class="num">Qty</th><th>To (user · dept)</th><th>For asset</th><th>Ticket / ref</th><th>By</th></tr>${outs.slice(0, 30).map(m => row(m, [`<span class="num">${esc(m.Qty)}</span>`, esc([m.Received_By + (m.Employee_ID ? " #" + m.Employee_ID : ""), m.Issued_Dept].filter(Boolean).join(" · ") || "—"), esc(m.Asset_Serial || "—"), esc(m.Reference || "—"), esc(m.Entered_By)])).join("")}</table>` : `<p class="muted">Not issued yet.</p>`;
+  return `<div class="stdbox">
+    <div class="stdhead"><div><b>${esc(i.Item_Code || code)} — ${esc(i.Item_Name || "")}</b><small>${esc(fitsFor(i).join(", "))}</small></div>
+      <div class="stdbtns"><button type="button" class="btn secondary small" data-use>Receive / issue this item</button><button type="button" class="btn secondary small" data-close>Close ✕</button></div></div>
+    <div class="stdstats"><div><b>${num(i.Qty_On_Hand)}</b><span>in stock now</span></div><div><b>${sum(ins)}</b><span>bought (${ins.length} purchase${ins.length === 1 ? "" : "s"})</span></div><div><b>${sum(outs)}</b><span>issued / used</span></div><div><b>${Object.keys(byV).length}</b><span>vendor${Object.keys(byV).length === 1 ? "" : "s"}</span></div></div>
+    ${vend ? `<h4>Bought from</h4><div class="vcards">${vend}</div>` : ""}
+    <h4>Purchase history (Receive IN)</h4>${inT}
+    <h4>Issued / used (OUT)${outs.length > 30 ? " — latest 30" : ""}</h4>${outT}
+    ${adj.length ? `<h4>Corrections</h4><table class="mini">${adj.map(m => row(m, [esc(m.Direction), esc(m.Qty), esc(m.Reference || ""), esc(m.Entered_By)])).join("")}</table>` : ""}
+  </div>`;
 }
 
 /* ================= VENDORS ================= */
