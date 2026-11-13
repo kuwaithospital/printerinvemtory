@@ -327,6 +327,9 @@
   #vnTable td.vcats .badge{margin:1px}
   #vnTable td.nowrap{white-space:nowrap}
   tr.vdet>td{padding:0;background:#f7f8fc}
+  .ssbar{display:flex;gap:10px;align-items:center;flex-wrap:wrap;background:#eef3ff;border:1px solid #c9d6ff;border-radius:10px;padding:8px 12px;margin:0 0 10px;position:sticky;top:0;z-index:3}
+  .ssbar span{font-weight:600;flex:1 1 auto}.ssbar .btn{margin:0;width:auto}
+  .mini td.ck,.mini th.ck{width:28px;text-align:center}.mini input.sschk{width:18px;height:18px;margin:0}
   .vcard .role{display:inline-block;font-size:11px;font-weight:700;letter-spacing:.03em;text-transform:uppercase;color:var(--brand);background:var(--brand2);border-radius:4px;padding:1px 6px;margin-bottom:4px}
   .people{display:flex;flex-direction:column;gap:10px;margin-top:8px}
   .person{border:1px solid var(--line);border-radius:10px;padding:10px 12px 12px;background:#f7f8fc;position:relative}
@@ -755,6 +758,7 @@
         <h3>Items with a serial number</h3>
         <div class="lookup"><div class="row"><input id="kiSerial" placeholder="Scan or type serial, then Enter"><button type="button" class="btn secondary cam" data-cam="kiSerial" title="Scan with camera">📷 <span>Camera</span></button><label class="btn secondary att" for="kiSerialFile" title="Read barcodes from photos">📎 <span>Attach</span></label><input type="file" id="kiSerialFile" accept="image/*" multiple class="hidefile"></div></div>
         <div id="kiSerialReader" class="reader hidden"></div>
+        <div class="row" style="margin-top:8px"><select id="kiStore"></select><button type="button" class="btn secondary" id="kiStoreAdd" style="flex:0 0 80px;margin:0">Add</button></div>
         <ul class="kitlist" id="kiItems"></ul>
         <h3 style="margin-top:18px">Accessories from stock (no serial)</h3>
         <div class="lookup">
@@ -788,7 +792,7 @@
         </div>
         <div class="three">
           <div><label>Floor</label><select id="bkFloor" class="floors"></select></div>
-          <div><label>Dept / Clinic</label><input id="bkDept" list="deptList" placeholder="e.g. IT STORE ROOM"></div>
+          <div><label>Dept / Clinic</label><input id="bkDept" list="deptList" value="IT STORE" placeholder="e.g. IT STORE"></div>
           <div><label>Room / exact location</label><input id="bkRoom" placeholder="Optional"></div>
         </div>
         <div class="two">
@@ -894,8 +898,9 @@
     </div>
   </div>
   <div class="card">
-    <h2>📦 Items with serial numbers in store <span class="muted" id="ssCount"></span></h2>
-    <p class="muted" style="margin:2px 0 8px">Printers, laptops, PCs, scanners… received (e.g. with Bulk register) and not issued yet — status <b>In store (spare)</b>. Click a model to see each serial and issue it.</p>
+    <h2>📦 In IT store — items with serial numbers <span class="muted" id="ssCount"></span></h2>
+    <p class="muted" style="margin:2px 0 8px">Only items physically in the <b>IT store</b> and not given to anyone. Items with a user are in the <b>Assets</b> tab. Click a model, tick the items (monitor, CPU, printer, phone…) and press <b>Issue selected</b>.</p>
+    <div class="ssbar hidden" id="ssBar"><span id="ssSelTxt"></span><button type="button" class="btn small" id="ssIssueSel">👤 Issue selected to a user</button><button type="button" class="btn secondary small" id="ssSelClear">Clear</button></div>
     <div class="chips" id="ssChips"></div>
     <div class="tablewrap"><table id="ssTable"></table></div>
   </div>
@@ -1873,7 +1878,7 @@ function kiRender() {
   document.querySelectorAll("#kiItems [data-k]").forEach(el => el.oninput = el.onchange = () => { kiItems[+el.dataset.n][el.dataset.k] = el.value; kiSum(); });
   document.querySelectorAll("#kiItems [data-rm]").forEach(b => b.onclick = () => { kiItems.splice(+b.dataset.rm, 1); kiRender(); });
   document.querySelectorAll("#kiLines [data-rml]").forEach(b => b.onclick = () => { kiLines.splice(+b.dataset.rml, 1); kiRender(); });
-  kiSum();
+  kiSum(); kiFillStore();
 }
 function kiSum() {
   const n = kiItems.length, q = kiLines.reduce((t, l) => t + l.qty, 0), user = $("kiUser").value.trim();
@@ -2223,8 +2228,12 @@ function renderStock(hit) {
   }
 }
 /* serial-numbered items still in the IT store (they are assets, kept as spare until issued) */
-let ssOpen = null, ssType = "All";
-const inStore = a => /store|spare/i.test(a.Status || "") && !/retired/i.test(a.Status || "");
+let ssOpen = null, ssType = "All", ssSel = new Set();
+/* in the IT store = location says IT store (or dept is IT) + nobody assigned + not issued / retired */
+const IT_STORE = /it\s*store|store\s*room|^\s*it\s*$|^\s*it\s*(dept|department)\s*$/i;
+const inStore = a => !String(a.Assigned_User || "").trim() && !String(a.Employee_ID || "").trim()
+  && !/retired|dispos|scrap|in use|issued|lost/i.test(a.Status || "")
+  && [a.Clinic_Department, a.Room, a.Floor].some(v => IT_STORE.test(String(v || "")));
 function renderSerialStock() {
   if (!$("ssTable")) return;
   const words = qWords($("stQ").value);
@@ -2244,19 +2253,46 @@ function renderSerialStock() {
     const [t, br, md] = k.split("|"), open = ssOpen === k, where = [...new Set(items.map(a => [a.Floor, a.Clinic_Department, a.Room].filter(Boolean).join(" · ")))].slice(0, 2).join(" / ");
     const last = items.map(a => a.Registered_On).filter(Boolean).sort((x, y) => (parseDMY(y) || 0) - (parseDMY(x) || 0))[0] || "";
     return `<tr class="click ssrow${open ? " open" : ""}" data-k="${esc(k)}"><td class="car">${open ? "▾" : "▸"}</td><td>${ICON[t] || "📦"} ${hl(t, words)}</td><td><b>${hl([br, md].filter(Boolean).join(" ") || "—", words)}</b></td><td class="num"><b>${items.length}</b></td><td>${hl(where, words)}</td><td>${esc(last)}</td></tr>`
-      + (open ? `<tr class="vdet"><td colspan="6"><div class="stdbox"><div class="stdhead"><div><b>${items.length} × ${esc([br, md].filter(Boolean).join(" "))}</b><small>${esc(t)} — click Issue to give one to a user, or Open to see / move it</small></div>
+      + (open ? `<tr class="vdet"><td colspan="6"><div class="stdbox"><div class="stdhead"><div><b>${items.length} × ${esc([br, md].filter(Boolean).join(" "))}</b><small>${esc(t)} — tick items to issue together (you can tick from several models), or Issue one now</small></div>
           <div class="stdbtns"><button type="button" class="btn secondary small" data-ssclose>Close ✕</button></div></div>
-          <table class="mini"><tr><th>S#No</th><th>Serial No</th><th>Tag</th><th>Location</th><th>Received</th><th>Supplier / notes</th><th></th></tr>${items.map(a => `<tr><td>${esc(a.SNo)}</td><td><b>${hl(a.Serial_No, words)}</b></td><td>${esc(a.Asset_Tag || "")}</td><td>${esc([a.Floor, a.Clinic_Department, a.Room].filter(Boolean).join(" · "))}</td><td>${esc(a.Registered_On || "")}</td><td>${hl(a.Notes || "", words)}</td>
+          <table class="mini"><tr><th class="ck"><input type="checkbox" class="sschk" data-ssall="${esc(k)}" title="Tick all" ${items.every(a => ssSel.has(a.Serial_No)) ? "checked" : ""}></th><th>S#No</th><th>Serial No</th><th>Tag</th><th>Location</th><th>Received</th><th>Supplier / notes</th><th></th></tr>${items.map(a => `<tr><td class="ck"><input type="checkbox" class="sschk" data-sssel="${esc(a.Serial_No)}" ${ssSel.has(a.Serial_No) ? "checked" : ""}></td><td>${esc(a.SNo)}</td><td><b>${hl(a.Serial_No, words)}</b></td><td>${esc(a.Asset_Tag || "")}</td><td>${esc([a.Floor, a.Clinic_Department, a.Room].filter(Boolean).join(" · "))}</td><td>${esc(a.Registered_On || "")}</td><td>${hl(a.Notes || "", words)}</td>
             <td class="act"><button type="button" class="ib" data-ssissue="${esc(a.Serial_No)}">👤 Issue</button><button type="button" class="ib" data-ssopen="${esc(a.Serial_No)}">Open</button></td></tr>`).join("")}</table></div></td></tr>` : "");
-  }).join("") : `<tr><td colspan="6" class="muted">${words.length ? "No serial-numbered items in store match your search." : "Nothing with a serial number is in store. Items registered with status “In store (spare)” appear here."}</td></tr>`);
+  }).join("") : `<tr><td colspan="6" class="muted">${words.length ? "No serial-numbered items in store match your search." : "Nothing with a serial number is in the IT store. Register items with Dept / location “IT STORE” and no user."}</td></tr>`);
   document.querySelectorAll("#ssTable tr.ssrow").forEach(tr => tr.onclick = () => { ssOpen = ssOpen === tr.dataset.k ? null : tr.dataset.k; renderSerialStock(); });
   document.querySelectorAll("#ssTable [data-ssclose]").forEach(b => b.onclick = () => { ssOpen = null; renderSerialStock(); });
+  document.querySelectorAll("#ssTable [data-sssel]").forEach(c => { c.onclick = e => e.stopPropagation(); c.onchange = () => { c.checked ? ssSel.add(c.dataset.sssel) : ssSel.delete(c.dataset.sssel); ssBar(); renderSerialStock(); }; });
+  document.querySelectorAll("#ssTable [data-ssall]").forEach(c => { c.onclick = e => e.stopPropagation(); c.onchange = () => { (groups[c.dataset.ssall] || []).forEach(a => c.checked ? ssSel.add(a.Serial_No) : ssSel.delete(a.Serial_No)); ssBar(); renderSerialStock(); }; });
+  ssBar();
   document.querySelectorAll("#ssTable [data-ssopen]").forEach(b => b.onclick = e => { e.stopPropagation(); show("assets"); $("asSerial").value = b.dataset.ssopen; asLookup(); });
   document.querySelectorAll("#ssTable [data-ssissue]").forEach(b => b.onclick = e => {   // straight into "Issue to a user" with this serial added
     e.stopPropagation(); show("assets"); $("kit").open = true; kiAddSerial(b.dataset.ssissue);
     setTimeout(() => { $("kit").scrollIntoView({ behavior: "smooth" }); $("kiUser").focus(); }, 100);
   });
 }
+
+function ssBar() {
+  const live = new Set(DB.assets.filter(inStore).map(a => a.Serial_No));
+  [...ssSel].forEach(x => { if (!live.has(x)) ssSel.delete(x); });   // issued meanwhile
+  const sel = DB.assets.filter(a => ssSel.has(a.Serial_No)), n = sel.length;
+  $("ssBar").classList.toggle("hidden", !n);
+  const byT = {}; sel.forEach(a => byT[a.Asset_Type || "Other"] = (byT[a.Asset_Type || "Other"] || 0) + 1);
+  $("ssSelTxt").textContent = n ? `${n} selected: ` + Object.entries(byT).map(([t, c]) => `${c} ${t}`).join(", ") : "";
+}
+$("ssSelClear").onclick = () => { ssSel.clear(); renderSerialStock(); };
+$("ssIssueSel").onclick = () => {
+  show("assets"); $("kit").open = true; kiAddSerial([...ssSel].join(",")); ssSel.clear(); renderSerialStock();
+  setTimeout(() => { $("kit").scrollIntoView({ behavior: "smooth" }); $("kiUser").focus(); }, 100);
+};
+/* "Issue to a user": pick any serial item that is in the IT store */
+function kiFillStore() {
+  if (!$("kiStore")) return;
+  const items = DB.assets.filter(inStore).filter(a => !kiItems.some(i => U(i.serial) === U(a.Serial_No)));
+  const byT = {}; items.forEach(a => (byT[a.Asset_Type || "Other"] = byT[a.Asset_Type || "Other"] || []).push(a));
+  $("kiStore").innerHTML = `<option value="">Or pick from IT store (${items.length}) — monitor, CPU, printer, phone…</option>` + Object.keys(byT).sort().map(t =>
+    `<optgroup label="${esc((ICON[t] || "📦") + " " + t)} (${byT[t].length})">${byT[t].map(a => `<option value="${esc(a.Serial_No)}">${esc([a.Brand, a.Model].filter(Boolean).join(" ") || t)} — ${esc(a.Serial_No)}</option>`).join("")}</optgroup>`).join("");
+}
+$("kiStoreAdd").onclick = () => { const v = $("kiStore").value; if (!v) { msg("kiMsg", "warn", "Choose an item from the IT store list first."); return; } kiAddSerial(v); };
+$("kiStore").onchange = () => { if ($("kiStore").value) kiAddSerial($("kiStore").value); };
 
 /* everything about one stock item: who we bought it from, when, and where it went */
 function stockDetail(code) {
