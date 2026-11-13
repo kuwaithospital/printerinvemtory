@@ -319,8 +319,15 @@
   .vcard b{display:block}.vcard span{font-size:13px}.vcard small{display:block;color:var(--muted);font-size:12px}
   table.mini{background:#fff;border:1px solid var(--line);border-radius:8px;font-size:13px}
   table.mini th{position:static;background:#eef1f5}
-  table.mini td:nth-child(2){text-align:right;font-weight:600}
+  table.mini.q td:nth-child(2){text-align:right;font-weight:600}
   @media(max-width:640px){.stdstats{grid-template-columns:repeat(2,minmax(0,1fr))}}
+  #vnTable tr.vrow td{vertical-align:middle}
+  #vnTable td.car{width:22px;color:var(--brand);font-size:14px;padding-right:0}
+  #vnTable tr.open td{background:#eef0fa}
+  #vnTable td.vcats .badge{margin:1px}
+  #vnTable td.nowrap{white-space:nowrap}
+  tr.vdet>td{padding:0;background:#f7f8fc}
+  .vcard .role{display:inline-block;font-size:11px;font-weight:700;letter-spacing:.03em;text-transform:uppercase;color:var(--brand);background:var(--brand2);border-radius:4px;padding:1px 6px;margin-bottom:4px}
   .people{display:flex;flex-direction:column;gap:10px;margin-top:8px}
   .person{border:1px solid var(--line);border-radius:10px;padding:10px 12px 12px;background:#f7f8fc;position:relative}
   .person .ptop{display:flex;align-items:center;gap:8px}
@@ -917,7 +924,7 @@
   </form>
   <div class="card">
     <h2>Vendor directory <span class="muted" id="vnCount"></span></h2>
-    <div class="hint">Tap a vendor to edit it.</div>
+    <div class="hint">Click a vendor to see all its details, purchases and repairs (Edit is inside).</div>
     <div class="chips" id="vnChips"></div>
     <div class="tablewrap"><table id="vnTable"></table></div>
   </div>
@@ -1364,7 +1371,7 @@ function gsearch() {
     if (where === "assets") { show("assets"); $("asSerial").value = k; asLookup(); }
     if (where === "stock") { show("stock"); resetStock(); $("stCode").value = k; stLookup(); }
     if (where === "service") { show("service"); resetService(); $("svSerial").value = k; svLookup(); }
-    if (where === "vendors") { show("vendors"); editVendor(k); }
+    if (where === "vendors") { show("vendors"); vnOpen = k; editVendor(k); }
     window.scrollTo(0, 0);
   };
   document.querySelectorAll("#gres button").forEach(b => b.onclick = () => go(b.dataset.go, b.dataset.k));
@@ -2220,8 +2227,8 @@ function stockDetail(code) {
     const vr = DB.vendors.find(y => U(y.Vendor_Name) === U(v)), ph = vr && vr.Phone ? ` · <a href="tel:${esc(String(vr.Phone).replace(/\s/g, ""))}">${esc(vr.Phone)}</a>` : "";
     return `<div class="vcard"><b>${esc(v)}</b><span>${x.q} unit${x.q === 1 ? "" : "s"} in ${x.n} purchase${x.n === 1 ? "" : "s"}</span><small>last ${esc(x.last)}${ph}</small></div>`; }).join("");
   const row = (m, cells) => `<tr><td>${esc(m.Move_Date)} <span class="muted">${esc(m.Move_Time || "")}</span></td>${cells.map(c => `<td>${c}</td>`).join("")}</tr>`;
-  const inT = ins.length ? `<table class="mini"><tr><th>Date</th><th class="num">Qty</th><th>Vendor</th><th>PO / delivery note</th><th>Received by</th></tr>${ins.map(m => row(m, [`<span class="num">${esc(m.Qty)}</span>`, esc(m.Supplier || "—"), esc(m.Reference || "—"), esc(m.Entered_By)])).join("")}</table>` : `<p class="muted">No purchases recorded yet.</p>`;
-  const outT = outs.length ? `<table class="mini"><tr><th>Date</th><th class="num">Qty</th><th>To (user · dept)</th><th>For asset</th><th>Ticket / ref</th><th>By</th></tr>${outs.slice(0, 30).map(m => row(m, [`<span class="num">${esc(m.Qty)}</span>`, esc([m.Received_By + (m.Employee_ID ? " #" + m.Employee_ID : ""), m.Issued_Dept].filter(Boolean).join(" · ") || "—"), esc(m.Asset_Serial || "—"), esc(m.Reference || "—"), esc(m.Entered_By)])).join("")}</table>` : `<p class="muted">Not issued yet.</p>`;
+  const inT = ins.length ? `<table class="mini q"><tr><th>Date</th><th class="num">Qty</th><th>Vendor</th><th>PO / delivery note</th><th>Received by</th></tr>${ins.map(m => row(m, [`<span class="num">${esc(m.Qty)}</span>`, esc(m.Supplier || "—"), esc(m.Reference || "—"), esc(m.Entered_By)])).join("")}</table>` : `<p class="muted">No purchases recorded yet.</p>`;
+  const outT = outs.length ? `<table class="mini q"><tr><th>Date</th><th class="num">Qty</th><th>To (user · dept)</th><th>For asset</th><th>Ticket / ref</th><th>By</th></tr>${outs.slice(0, 30).map(m => row(m, [`<span class="num">${esc(m.Qty)}</span>`, esc([m.Received_By + (m.Employee_ID ? " #" + m.Employee_ID : ""), m.Issued_Dept].filter(Boolean).join(" · ") || "—"), esc(m.Asset_Serial || "—"), esc(m.Reference || "—"), esc(m.Entered_By)])).join("")}</table>` : `<p class="muted">Not issued yet.</p>`;
   return `<div class="stdbox">
     <div class="stdhead"><div><b>${esc(i.Item_Code || code)} — ${esc(i.Item_Name || "")}</b><small>${esc(fitsFor(i).join(", "))}</small></div>
       <div class="stdbtns"><button type="button" class="btn secondary small" data-use>Receive / issue this item</button><button type="button" class="btn secondary small" data-close>Close ✕</button></div></div>
@@ -2234,7 +2241,7 @@ function stockDetail(code) {
 }
 
 /* ================= VENDORS ================= */
-let vnFilter = "All";
+let vnFilter = "All", vnOpen = null;
 function repairs() {
   return DB.assets.filter(a => a.Status === "Under repair").map(a => {
     const m = DB.amoves.filter(x => U(x.Serial_No) === U(a.Serial_No) && x.Reason === "Sent for repair").sort((x, y) => (parseDMY(y.Move_Date) || 0) - (parseDMY(x.Move_Date) || 0))[0] || {};
@@ -2311,12 +2318,48 @@ function renderVendors(hit) {
   $("vnCount").textContent = `(${rows.length})`;
   const tel = ph => ph ? `<a href="tel:${esc(String(ph).replace(/\s/g, ""))}">${esc(ph)}</a>` : "";
   const ppl = v => { const ps = vPeople(v); return ps.length ? `<div class="plist">${ps.map(p => `<div class="pp"><span class="role">${esc(p.role)}</span><b>${esc(p.name)}</b><small>${[tel(p.phone), p.email ? `<a href="mailto:${esc(p.email)}">${esc(p.email)}</a>` : ""].filter(Boolean).join(" · ")}</small></div>`).join("")}</div>` : "—"; };
-  $("vnTable").innerHTML = `<tr><th>Vendor</th><th>Supplies / repairs</th><th>Contact persons</th><th>Contract ends</th><th>Now with them</th></tr>` + (rows.length ? rows.map(v => {
+  // one compact line per vendor; click it to open everything about that vendor underneath
+  const main = v => { const p = vPeople(v)[0]; return p ? `${esc(p.name)}${p.phone ? " · " + tel(p.phone) : ""}` : "—"; };
+  $("vnTable").innerHTML = `<tr><th></th><th>Vendor</th><th>Supplies / repairs</th><th>Main contact</th><th class="num">People</th><th>Contract ends</th><th>Now with them</th></tr>` + (rows.length ? rows.map(v => {
     const n = rep.filter(r => U(r.m.Vendor) === U(v.Vendor_Name)).length, end = parseAny(v.Contract_End), soon = end && (end - new Date()) / 864e5 <= 60;
-    return `<tr class="click${U(v.Vendor_Name) === U(hit) ? " hit" : ""}" data-v="${esc(v.Vendor_Name)}"><td><b>${esc(v.Vendor_Name)}</b></td><td>${vCats(v).map(c => `<span class="badge s-store" style="margin:1px">${esc(c)}</span>`).join(" ")}</td><td>${ppl(v)}</td><td>${v.Contract_End ? `<span class="badge ${soon ? "s-repair" : "okb"}">${esc(isoToDMY(v.Contract_End))}</span>` : "—"}</td><td>${n ? `<span class="badge s-repair">${n} in repair</span>` : ""}</td></tr>`;
-  }).join("") : `<tr><td colspan="5" class="muted">No vendors yet — add your printer, computer, network and CCTV vendors above.</td></tr>`);
-  document.querySelectorAll("#vnTable tr.click").forEach(tr => tr.onclick = e => { if (e.target.closest("a")) return; editVendor(tr.dataset.v); });
+    const open = U(v.Vendor_Name) === U(vnOpen), cats = vCats(v);
+    return `<tr class="click vrow${U(v.Vendor_Name) === U(hit) ? " hit" : ""}${open ? " open" : ""}" data-v="${esc(v.Vendor_Name)}"><td class="car">${open ? "▾" : "▸"}</td><td><b>${esc(v.Vendor_Name)}</b></td>
+      <td class="vcats">${cats.slice(0, 3).map(c => `<span class="badge s-store">${esc(c)}</span>`).join(" ")}${cats.length > 3 ? ` <span class="muted">+${cats.length - 3}</span>` : ""}</td>
+      <td class="nowrap">${main(v)}</td><td class="num">${vPeople(v).length}</td>
+      <td>${v.Contract_End ? `<span class="badge ${soon ? "s-repair" : "okb"}">${esc(isoToDMY(v.Contract_End))}</span>` : "—"}</td><td>${n ? `<span class="badge s-repair">${n} in repair</span>` : ""}</td></tr>`
+      + (open ? `<tr class="vdet"><td colspan="7">${vendorDetail(v, rep)}</td></tr>` : "");
+  }).join("") : `<tr><td colspan="7" class="muted">No vendors yet — add your printer, computer, network and CCTV vendors above.</td></tr>`);
+  document.querySelectorAll("#vnTable tr.vrow").forEach(tr => tr.onclick = e => { if (e.target.closest("a,button")) return; vnOpen = U(vnOpen) === U(tr.dataset.v) ? null : tr.dataset.v; renderVendors(); });
+  document.querySelectorAll("#vnTable [data-vedit]").forEach(b => b.onclick = () => editVendor(b.dataset.vedit));
+  document.querySelectorAll("#vnTable [data-vclose]").forEach(b => b.onclick = () => { vnOpen = null; renderVendors(); });
   $("vnRepairs").innerHTML = `<tr><th>Asset</th><th>Vendor</th><th>Contact</th><th>Days out</th></tr>` + (rep.length ? rep.map(r => `<tr><td>${r.cells.Type}<br><span class="muted">${r.cells.Serial}</span></td><td>${r.cells.Vendor}<br><span class="muted">${r.cells["Vendor ticket"]}</span></td><td>${r.cells.Contact}<br>${r.cells.Number}</td><td>${r.cells["Days out"]}</td></tr>`).join("") : `<tr><td colspan="4" class="muted">Nothing out for repair.</td></tr>`);
+}
+
+/* everything about one vendor: all people, what we bought from them, repairs */
+function vendorDetail(v, rep) {
+  const tel = ph => ph ? `<a href="tel:${esc(String(ph).replace(/\s/g, ""))}">📞 ${esc(ph)}</a>` : "";
+  const people = vPeople(v).map(p => `<div class="vcard"><span class="role">${esc(p.role)}</span><b>${esc(p.name || "—")}</b>
+      <small>${[tel(p.phone), p.email ? `<a href="mailto:${esc(p.email)}">✉️ ${esc(p.email)}</a>` : ""].filter(Boolean).join("<br>") || "no number"}</small></div>`).join("");
+  const buys = DB.smoves.filter(m => m.Direction === "IN" && U(m.Supplier) === U(v.Vendor_Name)).sort((a, b) => (parseDMY(b.Move_Date, b.Move_Time) || 0) - (parseDMY(a.Move_Date, a.Move_Time) || 0));
+  const assetsFrom = DB.assets.filter(a => String(a.Notes || "").toUpperCase().includes("SUPPLIER: " + U(v.Vendor_Name)));
+  const repNow = rep.filter(r => U(r.m.Vendor) === U(v.Vendor_Name));
+  const repAll = DB.amoves.filter(m => U(m.Vendor) === U(v.Vendor_Name) && m.Reason === "Sent for repair");
+  const units = buys.reduce((t, m) => t + num(m.Qty), 0);
+  const end = parseAny(v.Contract_End), days = end ? Math.round((end - new Date()) / 864e5) : null;
+  return `<div class="stdbox">
+    <div class="stdhead"><div><b>${esc(v.Vendor_Name)}</b><small>${esc(vCats(v).join(" · ") || "No categories")}</small></div>
+      <div class="stdbtns"><button type="button" class="btn secondary small" data-vedit="${esc(v.Vendor_Name)}">✏️ Edit vendor</button><button type="button" class="btn secondary small" data-vclose>Close ✕</button></div></div>
+    <div class="stdstats"><div><b>${vPeople(v).length}</b><span>contact persons</span></div><div><b>${units}</b><span>items bought (${buys.length} purchase${buys.length === 1 ? "" : "s"})</span></div>
+      <div><b>${repNow.length}</b><span>with them for repair now</span></div><div><b>${v.Contract_End ? esc(isoToDMY(v.Contract_End)) : "—"}</b><span>${days === null ? "no support / AMC contract" : days < 0 ? "contract expired" : `contract ends in ${days} day${days === 1 ? "" : "s"}`}</span></div></div>
+    <h4>Contact persons</h4><div class="vcards">${people || '<span class="muted">No contacts saved.</span>'}</div>
+    ${v.Notes ? `<h4>Notes</h4><p style="margin:0">${esc(v.Notes)}</p>` : ""}
+    <h4>Bought from ${esc(v.Vendor_Name)}</h4>
+    ${buys.length ? `<table class="mini q"><tr><th>Date</th><th class="num">Qty</th><th>Item</th><th>PO / delivery note</th><th>Received by</th></tr>${buys.slice(0, 30).map(m => `<tr><td>${esc(m.Move_Date)}</td><td>${esc(m.Qty)}</td><td>${esc(m.Item_Code)} — ${esc(m.Item_Name)}</td><td>${esc(m.Reference || "—")}</td><td>${esc(m.Entered_By)}</td></tr>`).join("")}</table>` : `<p class="muted">No stock purchases recorded from this vendor.</p>`}
+    ${assetsFrom.length ? `<p class="muted" style="margin-top:6px">Also ${assetsFrom.length} asset${assetsFrom.length === 1 ? "" : "s"} registered with this supplier (Bulk register).</p>` : ""}
+    <h4>Repairs</h4>
+    ${repAll.length ? `<table class="mini"><tr><th>Sent</th><th>Asset</th><th>Ticket / RMA</th><th>Fault</th><th>Status</th></tr>${repAll.slice(0, 30).map(m => { const a = DB.assets.find(x => U(x.Serial_No) === U(m.Serial_No)) || {};
+      return `<tr><td>${esc(m.Move_Date)}</td><td>${esc(m.Asset_Type || a.Asset_Type || "")} ${esc(m.Serial_No)}</td><td>${esc(m.Vendor_Ticket || "—")}</td><td>${esc(m.Fault || "—")}</td><td>${a.Status === "Under repair" ? '<span class="badge s-repair">with vendor</span>' : '<span class="badge okb">returned</span>'}</td></tr>`; }).join("")}</table>` : `<p class="muted">No repairs sent to this vendor.</p>`}
+  </div>`;
 }
 
 /* ================= REPORTS ================= */
